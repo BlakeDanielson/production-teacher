@@ -7,9 +7,10 @@ import ReactMarkdown from "react-markdown";
 import { 
   TextInput, Button, Card, Alert, Loader, Text, Title, Group, Stack, 
   Container, SimpleGrid, Paper, Center, AspectRatio, Image, Badge, Divider,
-  ThemeIcon // Added ThemeIcon
+  ThemeIcon 
 } from '@mantine/core';
-import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications'; // Correct import
+import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy, IconCheck, IconX } from '@tabler/icons-react';
 
 // Constants for warnings
 const VIDEO_LENGTH_WARNING_MINUTES = 15; // Example: warn if video is longer than 15 minutes
@@ -34,12 +35,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [reportContent, setReportContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [analysisTypeForSave, setAnalysisTypeForSave] = useState<AnalysisType | null>(null); // Track type for saving
-  const [savedReports, setSavedReports] = useState<ReportMetadata[]>([]); // State for saved reports list
-  const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set()); // State for selected reports
-  const [isSynthesizing, setIsSynthesizing] = useState(false); // Loading state for synthesis
-  const [synthesisResult, setSynthesisResult] = useState<string | null>(null); // State for synthesis result
-  const [synthesisError, setSynthesisError] = useState<string | null>(null); // Error state for synthesis
+  const [analysisTypeForSave, setAnalysisTypeForSave] = useState<AnalysisType | null>(null); // Keep this for saving from main page
   
   // New state variables
   const [videoInfo, setVideoInfo] = useState<{ 
@@ -50,73 +46,9 @@ export default function Home() {
   } | null>(null);
   const [showSizeWarning, setShowSizeWarning] = useState(false);
 
-  // Fetch reports on component mount
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  // Fetch reports on component mount - REMOVED (will be on reports page)
+  // useEffect(() => { fetchReports(); }, []);
 
-  const fetchReports = async () => {
-    // Clear previous report-fetching errors
-    // setError(prev => prev === "Could not load saved reports." ? null : prev);
-    try {
-      const response = await fetch('/api/reports');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch reports: ${response.statusText}`);
-      }
-      const data: ReportMetadata[] = await response.json();
-      setSavedReports(data);
-    } catch (err) {
-      console.error("Error fetching reports:", err);
-      // Optionally set an error state for report fetching
-      setError(prev => prev ? `${prev}\nCould not load saved reports.` : "Could not load saved reports.");
-    }
-  };
-
-  const handleSynthesize = async () => {
-    if (selectedReportIds.size < 2) {
-      setSynthesisError("Please select at least two reports to synthesize.");
-      return;
-    }
-    setIsSynthesizing(true);
-    setSynthesisError(null);
-    setSynthesisResult(null);
-
-    try {
-      const response = await fetch('/api/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportIds: Array.from(selectedReportIds) }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `API request failed with status ${response.status}`);
-      }
-
-      setSynthesisResult(data.synthesisResult);
-
-    } catch (err) {
-      console.error("Error calling synthesize API:", err);
-      setSynthesisError(err instanceof Error ? err.message : "An unknown error occurred during synthesis.");
-    } finally {
-      setIsSynthesizing(false);
-    }
-  };
-
-  const handleCheckboxChange = (reportId: string, isChecked: boolean) => {
-    setSelectedReportIds(prev => {
-      const newSet = new Set(prev);
-      if (isChecked) {
-        newSet.add(reportId);
-      } else {
-        newSet.delete(reportId);
-      }
-      return newSet;
-    });
-  };
-
-  // Handle YouTube URL validation callback
   const handleYoutubeValidation = (isValid: boolean, info?: { id: string; title?: string; thumbnailUrl?: string }) => {
     if (isValid && info) {
       setVideoInfo(prev => ({ ...prev, id: info.id, title: info.title, thumbnailUrl: info.thumbnailUrl }));
@@ -136,7 +68,6 @@ export default function Home() {
     }
   };
 
-  // Modify the existing handleAnalyze function to check for warnings
   const handleAnalyze = async (type: AnalysisType) => {
     if (!youtubeUrl) {
       setError("Please enter a YouTube URL.");
@@ -187,10 +118,18 @@ export default function Home() {
 
   const handleSaveReport = async () => {
     if (!reportContent || !analysisTypeForSave || !youtubeUrl) {
-      // Use Mantine notifications instead of alert
-      console.error("Cannot save report: Missing data");
+      notifications.show({ title: 'Error', message: 'Cannot save report: Missing data', color: 'red' });
       return;
     }
+    // Indicate saving is in progress (optional)
+    const savingNotificationId = notifications.show({
+      loading: true,
+      title: 'Saving Report',
+      message: 'Please wait...',
+      autoClose: false,
+      withCloseButton: false,
+    });
+
     try {
       const response = await fetch('/api/reports', {
         method: 'POST',
@@ -205,32 +144,36 @@ export default function Home() {
         const data = await response.json();
         throw new Error(data.error || 'Failed to save report');
       }
-      // Report saved, maybe clear current report or give feedback
-      console.log("Report saved successfully!");
-      setReportContent(null); // Optionally clear the current report view
+      
+      notifications.update({
+        id: savingNotificationId,
+        color: 'green',
+        title: 'Success',
+        message: 'Report saved successfully!',
+        icon: <IconCheck size={16} />,
+        loading: false,
+        autoClose: 5000,
+        withCloseButton: true,
+      });
+      
+      // Clear the current report view after successful save
+      setReportContent(null); 
       setAnalysisTypeForSave(null);
-      await fetchReports(); // Refresh the list of saved reports
-    } catch (err) {
-      console.error("Error saving report:", err);
-      setError(err instanceof Error ? err.message : "Could not save the report.");
-    }
-  };
+      // REMOVED: await fetchReports(); 
 
-  const handleDeleteReport = async (id: string) => {
-    if (!confirm(`Are you sure you want to delete report ${id}?`)) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/reports?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to delete report');
-      }
-      console.log(`Report ${id} deleted.`);
-      await fetchReports(); // Refresh the list
     } catch (err) {
-      console.error(`Error deleting report ${id}:`, err);
-      setError(err instanceof Error ? err.message : "Could not delete the report.");
+      const errorMsg = err instanceof Error ? err.message : "Could not save the report.";
+      notifications.update({
+        id: savingNotificationId,
+        color: 'red',
+        title: 'Save Failed',
+        message: errorMsg,
+        icon: <IconX size={16} />,
+        loading: false,
+        autoClose: 7000,
+        withCloseButton: true,
+      });
+      setError(errorMsg); // Keep setting local error if needed
     }
   };
 
