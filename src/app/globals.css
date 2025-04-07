@@ -60,11 +60,10 @@ body {
   }
 }
 
-@layer base {
-  /* Remove the problematic border-border utility */
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Apply base styles directly instead of using utility classes */
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 /* Custom gradient backgrounds */

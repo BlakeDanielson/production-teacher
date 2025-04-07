@@ -397,11 +397,19 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-8 md:p-16 lg:p-24 bg-gray-900 text-gray-100">
-      <div className="w-full max-w-4xl">
-        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-          Production Teacher
-        </h1>
+    <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12 bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div className="w-full max-w-5xl">
+        {/* Header */}
+        <Card className="w-full mb-12 border-none bg-transparent shadow-none">
+          <CardContent className="p-0">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center animated-gradient-text">
+              Production Teacher
+            </h1>
+            <p className="text-center text-muted-foreground max-w-xl mx-auto">
+              AI-powered analysis and insights for video creators, helping you craft better content and improve your production quality.
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Updated Input Section with YoutubeInput */}
         <div className="mb-6 p-6 bg-gray-800 rounded-lg shadow-lg">
