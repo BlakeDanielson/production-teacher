@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Progress Tracker Utility
  * 
@@ -9,7 +11,7 @@ import { AnalysisType } from '@/types';
 import { estimateTimeRemaining } from './timeEstimates';
 
 // Define progress update message type
-type ProgressStage = 'validating' | 'downloading' | 'processing' | 'analyzing' | 'analyzing_pending' | 'complete' | 'error';
+export type ProgressStage = 'validating' | 'downloading' | 'processing' | 'analyzing' | 'analyzing_pending' | 'complete' | 'error';
 
 export interface ProgressUpdate {
   id: string;
@@ -102,12 +104,14 @@ export function confirmJobCompletion(jobId: string, success: boolean = true): vo
   });
   
   // Clean up after delay
-  setTimeout(() => {
-    if (activeJobs[jobId]) {
-      console.log(`Cleaning up completed job ${jobId}`);
-      delete activeJobs[jobId];
-    }
-  }, 60000); // Keep job data for 1 minute after completion
+  if (isBrowser) {
+    setTimeout(() => {
+      if (activeJobs[jobId]) {
+        console.log(`Cleaning up completed job ${jobId}`);
+        delete activeJobs[jobId];
+      }
+    }, 60000); // Keep job data for 1 minute after completion
+  }
 }
 
 // Cancel an analysis job
@@ -122,12 +126,14 @@ export function cancelAnalysis(jobId: string): void {
   });
   
   // Clean up after short delay
-  setTimeout(() => {
-    if (activeJobs[jobId]) {
-      console.log(`Cleaning up cancelled job ${jobId}`);
-      delete activeJobs[jobId];
-    }
-  }, 2000);
+  if (isBrowser) {
+    setTimeout(() => {
+      if (activeJobs[jobId]) {
+        console.log(`Cleaning up cancelled job ${jobId}`);
+        delete activeJobs[jobId];
+      }
+    }, 2000);
+  }
 }
 
 // Get current job progress
@@ -162,87 +168,6 @@ export function useProgressTracker(jobId: string | null): ProgressUpdate | null 
   
   return progress;
 }
-
-// Monitor for fetch completions to sync with backend
-if (isBrowser) {
-  const originalFetch = window.fetch;
-  
-  window.fetch = async function(input, init) {
-    // Extract jobId before making the request
-    let jobId: string | null = null;
-    
-    try {
-      // Check if this is an analyze request
-      if (typeof input === 'string' && input.includes('/api/analyze') && 
-          init?.method?.toUpperCase() === 'POST' && init?.body) {
-        
-        // Extract jobId from request body
-        const requestData = JSON.parse(init.body as string);
-        jobId = requestData.jobId || null;
-      }
-    } catch (e) {
-      // Ignore parsing errors in body
-    }
-    
-    // Make the actual request
-    const result = await originalFetch(input, init);
-    
-    // Process response for analyze endpoint
-    if (jobId && typeof input === 'string' && input.includes('/api/analyze')) {
-      // Clone the response so we can read it multiple times
-      const clonedResponse = result.clone();
-      
-      try {
-        // Try to parse the response
-        const responseData = await clonedResponse.json();
-        
-        // Confirm completion based on response status
-        confirmJobCompletion(jobId, clonedResponse.ok);
-        
-        // Log success or failure
-        if (clonedResponse.ok) {
-          console.log(`Backend confirmed completion of job: ${jobId}`);
-        } else {
-          console.error(`Backend reported error for job: ${jobId}`, responseData.error);
-        }
-      } catch (e) {
-        // If we can't parse the response, still update status based on HTTP status
-        confirmJobCompletion(jobId, clonedResponse.ok);
-        console.warn(`Could not parse response for job ${jobId}, but marked as ${clonedResponse.ok ? 'complete' : 'error'}`);
-      }
-    }
-    
-    return result;
-  };
-}
-
-// In a real implementation, this would be a WebSocket client connection
-// Example for reference (not used in this demo):
-/*
-let socket: WebSocket | null = null;
-
-function connectWebSocket() {
-  if (!isBrowser || socket) return;
-  
-  socket = new WebSocket('wss://your-websocket-server.com/progress');
-  
-  socket.onopen = () => {
-    console.log('WebSocket connected');
-  };
-  
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'progress' && data.jobId) {
-      updateJobProgress(data.jobId, data.progress);
-    }
-  };
-  
-  socket.onclose = () => {
-    socket = null;
-    setTimeout(connectWebSocket, 5000); // Reconnect after delay
-  };
-}
-*/
 
 // Update the job with progress information
 export function updateProgress(
@@ -279,7 +204,7 @@ export function updateProgress(
   notifySubscribers(jobId);
   
   // Special handling: if we're in the final stages (complete or error), clean up after a delay
-  if (stage === 'complete' || stage === 'error') {
+  if ((stage === 'complete' || stage === 'error') && isBrowser) {
     setTimeout(() => {
       if (activeJobs[jobId]) {
         console.log(`Cleaning up completed job ${jobId}`);
@@ -299,9 +224,13 @@ function notifySubscribers(jobId: string): void {
   }
 }
 
-// Start intercepting fetch calls to track progress
+// Monitor for fetch completions to sync with backend
 function interceptFetch(): void {
   if (!isBrowser) return;
+
+  // Use a module-level variable to track if we've already intercepted
+  if ((globalThis as any).__fetchIntercepted) return;
+  (globalThis as any).__fetchIntercepted = true;
   
   const originalFetch = window.fetch;
   

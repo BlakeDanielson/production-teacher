@@ -8,7 +8,7 @@ import fs from 'fs'; // Import standard fs for sync operations
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { updateProgress } from '@/lib/progressTracker'; // Import the progress tracker
+import { updateProgress, generateAnalysisId } from '@/lib/progressTrackerServer'; // Import the server version
 
 const execPromise = promisify(exec);
 const TEMP_DIR = path.join(os.tmpdir(), 'production_teacher_media'); // Use OS temp dir
