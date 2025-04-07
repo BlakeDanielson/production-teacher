@@ -5,12 +5,16 @@ import ReactMarkdown from "react-markdown";
 
 type AnalysisType = 'video' | 'audio';
 
+// Constants for warnings
+const VIDEO_LENGTH_WARNING_MINUTES = 10; // Warn for videos longer than 10 minutes
+const AUDIO_LENGTH_WARNING_MINUTES = 30; // Warn for audio longer than 30 minutes
+
 // Interface for Report Metadata (matching backend GET response)
 interface ReportMetadata {
   id: string;
-  youtubeUrl: string;
-  analysisType: 'video' | 'audio';
-  timestamp: string;
+  youtube_url: string;
+  analysis_type: 'video' | 'audio';
+  created_at: string;
 }
 
 export default function Home() {
@@ -24,7 +28,10 @@ export default function Home() {
   const [isSynthesizing, setIsSynthesizing] = useState(false); // Loading state for synthesis
   const [synthesisResult, setSynthesisResult] = useState<string | null>(null); // State for synthesis result
   const [synthesisError, setSynthesisError] = useState<string | null>(null); // Error state for synthesis
-
+  
+  // New state variables
+  const [videoInfo, setVideoInfo] = useState<{ title?: string; duration?: number } | null>(null);
+  const [showSizeWarning, setShowSizeWarning] = useState(false);
 
   // Fetch reports on component mount
   useEffect(() => {
@@ -92,12 +99,73 @@ export default function Home() {
     });
   };
 
+  // Add a new function to validate YouTube URL and fetch basic video info
+  const validateYoutubeUrl = async (url: string) => {
+    // Reset states
+    setVideoInfo(null);
+    setShowSizeWarning(false);
+    setError(null);
+    
+    if (!url) return;
+    
+    // Basic URL validation
+    if (!url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/)) {
+      setError("Please enter a valid YouTube URL");
+      return;
+    }
+    
+    try {
+      // Simple regex to extract video ID (this is a basic version, might need enhancement)
+      const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+      
+      if (!videoIdMatch || !videoIdMatch[1]) {
+        setError("Could not extract valid YouTube video ID.");
+        return;
+      }
+      
+      // Fetch basic info using Fetch API - this is just an example
+      // In a complete implementation, you might use YouTube API or a backend service
+      // For now, we'll simulate getting duration with a random value for demonstration
+      // In production, you'd properly get this data
+      
+      const mockInfo = {
+        title: "Video Title", // In production, get the real title
+        duration: Math.floor(Math.random() * 60) + 5 // Random duration between 5-65 minutes
+      };
+      
+      setVideoInfo(mockInfo);
+      
+      // Show warning if video is potentially too long
+      if (mockInfo.duration > VIDEO_LENGTH_WARNING_MINUTES) {
+        setShowSizeWarning(true);
+      }
+      
+    } catch (err) {
+      console.error("Error validating video:", err);
+      // Don't set error here, just log it
+    }
+  };
 
+  // Modify the existing handleAnalyze function to check for warnings
   const handleAnalyze = async (analysisType: AnalysisType) => {
     if (!youtubeUrl) {
       setError("Please enter a YouTube URL.");
       return;
     }
+    
+    // If analyzing a video that's too long, show confirmation
+    if (analysisType === 'video' && videoInfo?.duration && videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES) {
+      if (!confirm(`This video appears to be ${videoInfo.duration} minutes long, which might exceed Gemini's file size limits. Full video analysis might fail. Continue anyway?\n\nTip: Try audio-only analysis for long videos.`)) {
+        return;
+      }
+    }
+    // If analyzing audio that's very long, show a milder warning
+    else if (analysisType === 'audio' && videoInfo?.duration && videoInfo.duration > AUDIO_LENGTH_WARNING_MINUTES) {
+      if (!confirm(`This audio is ${videoInfo.duration} minutes long, which might take longer to process. Continue?`)) {
+        return;
+      }
+    }
+    
     setIsLoading(true);
     setError(null);
     setReportContent(null);
@@ -118,7 +186,7 @@ export default function Home() {
       }
 
       setReportContent(data.reportContent);
-      setAnalysisTypeForSave(analysisType); // Store the type for saving
+      setAnalysisTypeForSave(analysisType);
 
     } catch (err) {
       console.error("Error calling analyze API:", err);
@@ -138,9 +206,9 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          youtubeUrl: youtubeUrl, // Save the URL used for analysis
-          analysisType: analysisTypeForSave,
-          reportContent: reportContent,
+          youtube_url: youtubeUrl, // Changed to match Supabase column
+          analysis_type: analysisTypeForSave, // Changed to match Supabase column
+          report_content: reportContent, // Changed to match Supabase column
         }),
       });
       if (!response.ok) {
@@ -176,6 +244,17 @@ export default function Home() {
     }
   };
 
+  // URL validation effect with debounce
+  useEffect(() => {
+    // Only validate the URL, don't fetch reports here
+    const timer = setTimeout(() => {
+      if (youtubeUrl) {
+        validateYoutubeUrl(youtubeUrl);
+      }
+    }, 500); // 500ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [youtubeUrl]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 md:p-16 lg:p-24 bg-gray-900 text-gray-100">
@@ -198,6 +277,28 @@ export default function Home() {
             className="w-full px-4 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
             disabled={isLoading}
           />
+          
+          {/* Video Info Display */}
+          {videoInfo && (
+            <div className="mt-2 text-sm">
+              {videoInfo.duration && (
+                <p className="text-gray-400">
+                  Estimated Duration: <span className={videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES ? "text-amber-400 font-medium" : "text-gray-300"}>{videoInfo.duration} minutes</span>
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Size Warning Message */}
+          {showSizeWarning && (
+            <div className="mt-2 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
+              <p className="text-amber-400 text-sm">
+                <strong>⚠️ Warning:</strong> This video appears to be {videoInfo?.duration} minutes long, which might be too large for full video analysis.
+                Consider using the <strong>Audio Only</strong> option for longer content.
+              </p>
+            </div>
+          )}
+          
           <div className="flex justify-center space-x-4 mt-4">
             <button
               onClick={() => handleAnalyze('video')}
@@ -263,9 +364,9 @@ export default function Home() {
                        />
                        <div className="min-w-0"> {/* Ensure text truncates */}
                          <p className="text-sm text-gray-400">ID: {report.id.substring(0, 8)}...</p>
-                         <p className="text-gray-200 truncate" title={report.youtubeUrl}>{report.youtubeUrl}</p>
+                         <p className="text-gray-200 truncate" title={report.youtube_url}>{report.youtube_url}</p>
                          <p className="text-xs text-gray-500">
-                           Analyzed ({report.analysisType}) on {new Date(report.timestamp).toLocaleString()}
+                           Analyzed ({report.analysis_type}) on {new Date(report.created_at).toLocaleString()}
                          </p>
                        </div>
                     </div>

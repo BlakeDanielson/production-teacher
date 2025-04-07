@@ -10,7 +10,8 @@ const execPromise = promisify(exec);
 // --- Configuration ---
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 const TEMP_DIR = path.join(process.cwd(), 'tmp_media'); // Directory to store temporary downloads
-const MAX_FILE_SIZE_MB = 900; // Example limit (adjust based on Gemini/server limits)
+const MAX_FILE_SIZE_MB = 250; // Reduced from 900MB to 250MB for safety with Gemini API
+const GEMINI_MAX_SIZE_BYTES = 300 * 1024 * 1024; // 300MB, Gemini's actual limit
 
 if (!GEMINI_API_KEY) {
   console.error("ERROR: GOOGLE_GEMINI_API_KEY environment variable is not set.");
@@ -168,16 +169,24 @@ export async function POST(request: NextRequest) {
      if (fileStats.size === 0) {
        throw new Error("Downloaded file is empty.");
      }
-     // Check file size against limit
+     
+     // Enhanced size validation with better error messages
      if (fileStats.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        throw new Error(`File size (${(fileStats.size / (1024*1024)).toFixed(2)}MB) exceeds limit (${MAX_FILE_SIZE_MB}MB).`);
+        const sizeMB = (fileStats.size / (1024*1024)).toFixed(2);
+        throw new Error(`Media file too large (${sizeMB}MB). Please try a shorter video or use audio-only analysis for long content. Maximum size: ${MAX_FILE_SIZE_MB}MB.`);
+     }
+     
+     // Additional check specific to Gemini's API limit for more precise error
+     if (fileStats.size > GEMINI_MAX_SIZE_BYTES) {
+        const sizeMB = (fileStats.size / (1024*1024)).toFixed(2);
+        throw new Error(`File exceeds Gemini API size limit (${sizeMB}MB > 300MB). Please try a shorter video or use audio-only analysis.`);
      }
 
     // Determine MIME type (basic guess based on extension)
     const mimeType = analysisType === 'video' ? 'video/mp4' : 'audio/mp3'; // Adjust if yt-dlp gives different formats
 
     // --- Call Gemini API ---
-    console.log(`Calling Gemini API for file: ${filePath} (MIME: ${mimeType})`);
+    console.log(`Calling Gemini API for file: ${filePath} (MIME: ${mimeType}, Size: ${(fileStats.size / (1024*1024)).toFixed(2)}MB)`);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Use the appropriate model
 
     const generationConfig = {
