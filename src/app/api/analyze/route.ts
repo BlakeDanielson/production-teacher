@@ -192,9 +192,6 @@ interface RequestBody {
 
 // POST handler for the analyze endpoint
 export async function POST(request: Request) {
-  // Create a temporary file path
-  const tempFilePath = path.join(os.tmpdir(), 'production_teacher_media', `media_${Math.random().toString(36).substring(7)}_${Date.now()}.mp4`);
-  
   try {
     const data = await request.json() as RequestBody;
     const { youtubeUrl, analysisType, googleApiKey, customPrompt, jobId } = data;
@@ -211,184 +208,62 @@ export async function POST(request: Request) {
     console.log(`Analysis request received (Job ID: ${jobId || 'none'})`);
     
     // Extract YouTube ID
-    const youtubeId = getYoutubeId(youtubeUrl);
+    const youtubeId = extractYoutubeVideoId(youtubeUrl);
     if (!youtubeId) {
       return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
     }
     
-    // Make sure temp directory exists
-    const mediaDir = path.join(os.tmpdir(), 'production_teacher_media');
+    // Try to download the content
     try {
-      await fsPromises.mkdir(mediaDir, { recursive: true });
-    } catch (err) {
-      // Directory likely exists, continue
-    }
-    
-    // Set unique file path with YouTube ID
-    const tempPath = path.join(os.tmpdir(), 'production_teacher_media', `media_${youtubeId}_${Date.now()}.mp4`);
-    
-    // Download the video
-    console.log(`Processing ${analysisType} analysis for YouTube URL: ${youtubeUrl}`);
-    
-    try {
-      await downloadYoutubeVideo(youtubeUrl, tempPath);
-      console.log(`File downloaded successfully: ${tempPath}`);
-    } catch (downloadError) {
-      console.error("Error downloading video:", downloadError);
-      return NextResponse.json({ 
-        error: `Failed to download video: ${downloadError.message}`,
-        jobId 
-      }, { status: 500 });
-    }
-    
-    // Check file size - videos too large may fail
-    const stats = fsSync.statSync(tempPath);
-    
-    const fileSizeInMB = stats.size / (1024 * 1024);
-    if (fileSizeInMB > 100) {
-      return NextResponse.json({ 
-        error: `Video file is too large (${Math.round(fileSizeInMB)}MB). Please try a shorter video or use audio-only analysis.`,
-        jobId
-      }, { status: 400 });
-    }
-
-    // Analyze the content
-    try {
-      console.log(`Analyzing content: ${tempPath}`);
-      // Pass in custom prompt if provided
-      const reportContent = await analyzeContentWithGemini(tempPath, analysisType, googleApiKey, customPrompt);
+      const { filePath, cleanup } = await downloadMedia(youtubeUrl, analysisType);
+      console.log(`File downloaded successfully: ${filePath}`);
       
-      console.log(`✅ Analysis complete in ${Date.now() - tempPath.split("_").pop().split(".")[0]}ms (Job ID: ${jobId || 'none'})`);
+      // Check file size - videos too large may fail
+      const stats = fs.statSync(filePath);
       
-      return NextResponse.json({ 
-        reportContent,
-        jobId,
-        processingTimeMs: Date.now() - tempPath.split("_").pop().split(".")[0]
-      });
-    } catch (analysisError) {
-      console.error("Error during analysis:", analysisError);
-      return NextResponse.json({ 
-        error: `Analysis failed: ${analysisError.message}`,
-        jobId 
-      }, { status: 500 });
-    }
-  } catch (error) {
-    console.error("Error in analyze API:", error);
-    return NextResponse.json({ 
-      error: `An unexpected error occurred: ${error.message}`,
-      jobId: (request.json().then(data => data.jobId).catch(() => null))
-    }, { status: 500 });
-  } finally {
-    // Clean up the temp file regardless of success or failure
-    if (fsSync.existsSync(tempFilePath)) {
-      try {
-        fsSync.unlinkSync(tempFilePath);
-        console.log(`Cleaned up temporary file: ${tempFilePath}`);
-        console.log(`🧹 Cleaned up temporary media file`);
-      } catch (cleanupError) {
-        console.error("Error cleaning up temp file:", cleanupError);
+      const fileSizeInMB = stats.size / (1024 * 1024);
+      if (fileSizeInMB > 100) {
+        await cleanup();
+        return NextResponse.json({ 
+          error: `Video file is too large (${Math.round(fileSizeInMB)}MB). Please try a shorter video or use audio-only analysis.`,
+          jobId
+        }, { status: 400 });
       }
+
+      // Analyze the content
+      try {
+        console.log(`Analyzing content: ${filePath}`);
+        // Pass in custom prompt if provided
+        const reportContent = await analyzeContentWithGemini(filePath, analysisType, googleApiKey, customPrompt);
+        
+        // Clean up after successful analysis
+        await cleanup();
+        console.log(`✅ Analysis complete for job ${jobId || 'none'}`);
+        
+        return NextResponse.json({ 
+          reportContent,
+          jobId
+        });
+      } catch (analysisError) {
+        await cleanup();
+        console.error("Error during analysis:", analysisError instanceof Error ? analysisError.message : String(analysisError));
+        return NextResponse.json({ 
+          error: `Analysis failed: ${analysisError instanceof Error ? analysisError.message : String(analysisError)}`,
+          jobId 
+        }, { status: 500 });
+      }
+    } catch (downloadError) {
+      console.error("Error downloading media:", downloadError instanceof Error ? downloadError.message : String(downloadError));
+      return NextResponse.json({ 
+        error: `Failed to download media: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`,
+        jobId 
+      }, { status: 500 });
     }
-  }
-}
-
-// Analyze using Google's Gemini model
-async function analyzeWithGemini(
-  genAI: GoogleGenerativeAI,
-  filePath: string,
-  youtubeUrl: string,
-  mediaType: 'video' | 'audio',
-  customPrompt?: string
-): Promise<string> {
-  // Prepare model config
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro-latest",
-  });
-  
-  // Load media file
-  const mediaData = await fs.promises.readFile(filePath);
-  
-  // Create parts for the model
-  const parts: Part[] = [
-    { text: customPrompt || getAnalysisPrompt() },
-    { text: `\nMedia Type: ${mediaType === 'video' ? 'Video' : 'Audio'}\nSource: ${youtubeUrl}\n\n` },
-  ];
-  
-  // Add the media data
-  if (mediaType === 'video') {
-    parts.push({
-      inlineData: {
-        mimeType: "video/mp4",
-        data: mediaData.toString('base64')
-      },
-    });
-  } else {
-    parts.push({
-      inlineData: {
-        mimeType: "audio/mpeg",
-        data: mediaData.toString('base64')
-      },
-    });
-  }
-
-  // Configure generation parameters
-  const generationConfig = {
-    temperature: 0.7,
-    topK: 32,
-    topP: 0.95,
-    maxOutputTokens: 4096,
-  };
-  
-  // Configure safety settings
-  const safetySettings = [
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-  ];
-
-  try {
-    const result = await model.generateContent({ contents: [{ role: "user", parts }], generationConfig, safetySettings });
-    if (!result.response) throw new Error("Gemini API Error: No response object.");
-    
-    const responseText = result.response.text();
-    if (!responseText) {
-        if (result.response.promptFeedback?.blockReason) {
-             throw new Error(`Content blocked by Gemini: ${result.response.promptFeedback.blockReason}`);
-        }
-        throw new Error("Gemini API returned an empty response.");
-    }
-    return responseText; // Return the text
   } catch (error) {
-     console.error("Error during Gemini API call:", error);
-     // Construct error message safely
-     const errorMessage = error instanceof Error ? error.message : String(error);
-     throw new Error(`Gemini analysis failed: ${errorMessage}`);
+    console.error("Error in analyze API:", error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ 
+      error: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
+      jobId: null
+    }, { status: 500 });
   }
 }
-
-// Define types for Gemini parts
-interface TextPart {
-  text: string;
-}
-
-interface InlineDataPart {
-  inlineData: {
-    mimeType: string;
-    data: string;
-  }
-}
-
-type Part = TextPart | InlineDataPart;
