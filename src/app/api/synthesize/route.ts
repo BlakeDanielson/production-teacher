@@ -91,8 +91,9 @@ export async function POST(request: NextRequest) {
         combinedContent += reportData.reportContent;
         combinedContent += `\n\n--- Report End (ID: ${reportId}) ---\n\n`;
         reportCount++;
-      } catch (error: any) {
-        if (error.code === 'ENOENT') {
+      } catch (error: unknown) {
+        const nodeError = error as { code?: string };
+        if (nodeError.code === 'ENOENT') {
           console.warn(`Report file not found, skipping: ${reportId}`);
         } else {
           console.error(`Error reading or parsing report file ${reportId}:`, error);
@@ -156,9 +157,9 @@ export async function POST(request: NextRequest) {
     // --- Return Success Response ---
     return NextResponse.json({ synthesisResult: responseText });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in /api/synthesize:", error);
-    const errorMessage = error.message || "An unexpected error occurred during synthesis.";
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during synthesis.";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

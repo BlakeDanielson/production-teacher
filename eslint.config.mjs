@@ -11,6 +11,17 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    files: ["src/app/api/**/*.ts"],
+    rules: {
+      // Allow more flexible error handling in API routes
+      "@typescript-eslint/no-explicit-any": "warn",  // Downgrade to warning
+      "@typescript-eslint/no-unused-vars": ["error", { 
+        "argsIgnorePattern": "^_",   // Ignore vars starting with underscore
+        "varsIgnorePattern": "^_" 
+      }]
+    }
+  }
 ];
 
 export default eslintConfig;

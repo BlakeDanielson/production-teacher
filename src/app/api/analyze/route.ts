@@ -31,7 +31,7 @@ if (GEMINI_API_KEY) {
 async function ensureTempDirExists() {
   try {
     await fs.access(TEMP_DIR);
-  } catch (error) {
+  } catch {
     // Directory does not exist, create it
     await fs.mkdir(TEMP_DIR, { recursive: true });
     console.log(`Created temporary directory: ${TEMP_DIR}`);
@@ -86,9 +86,10 @@ async function downloadMedia(youtubeUrl: string, analysisType: 'video' | 'audio'
         }
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error during media download:', error);
-    throw new Error(`Failed to download media: ${error.message || 'Unknown yt-dlp error'}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown yt-dlp error';
+    throw new Error(`Failed to download media: ${errorMessage}`);
   }
 }
 
@@ -232,10 +233,10 @@ export async function POST(request: NextRequest) {
     // --- Return Success Response ---
     return NextResponse.json({ reportContent: responseText });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in /api/analyze:", error);
     // Return specific errors if possible
-    const errorMessage = error.message || "An unexpected error occurred during analysis.";
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during analysis.";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   } finally {
     // --- Cleanup Temporary File ---

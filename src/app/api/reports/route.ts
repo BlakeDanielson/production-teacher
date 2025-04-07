@@ -12,7 +12,7 @@ const REPORTS_DIR = path.join(process.cwd(), 'data', 'reports');
 async function ensureReportsDirExists() {
   try {
     await fs.access(REPORTS_DIR);
-  } catch (error) {
+  } catch {
     await fs.mkdir(REPORTS_DIR, { recursive: true });
     console.log(`Created reports directory: ${REPORTS_DIR}`);
   }
@@ -30,7 +30,7 @@ interface Report {
 // --- API Route Handlers ---
 
 // GET /api/reports - List all saved reports (metadata only)
-export async function GET(request: NextRequest) {
+export async function GET() {
   console.log("Received GET request to /api/reports");
   await ensureReportsDirExists();
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(validReports);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error listing reports:", error);
     return NextResponse.json({ error: "Failed to list reports." }, { status: 500 });
   }
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     console.log(`Report saved successfully: ${filePath}`);
     return NextResponse.json(newReport, { status: 201 }); // Return the created report
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error saving report:", error);
     return NextResponse.json({ error: "Failed to save report." }, { status: 500 });
   }
@@ -137,8 +137,10 @@ export async function DELETE(request: NextRequest) {
         await fs.unlink(filePath); // Delete the file
         console.log(`Report deleted successfully: ${filePath}`);
         return NextResponse.json({ message: 'Report deleted successfully' }, { status: 200 });
-    } catch (error: any) {
-        if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+        // For Node.js filesystem errors that have a code property
+        const nodeError = error as { code?: string };
+        if (nodeError.code === 'ENOENT') {
             console.warn(`Attempted to delete non-existent report: ${reportId}`);
             return NextResponse.json({ error: 'Report not found' }, { status: 404 });
         }
