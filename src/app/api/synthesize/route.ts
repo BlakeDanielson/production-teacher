@@ -1,11 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import fs from 'fs/promises';
-import path from 'path';
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
 
 // --- Configuration ---
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
-const REPORTS_DIR = path.join(process.cwd(), 'data', 'reports');
 
 if (!GEMINI_API_KEY) {
   console.error("ERROR: GOOGLE_GEMINI_API_KEY environment variable is not set.");
@@ -17,15 +15,6 @@ if (GEMINI_API_KEY) {
   genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 } else {
   console.warn("Gemini API Key not found. Synthesis API calls will fail.");
-}
-
-// Interface for Report structure (matching the saved JSON)
-interface Report {
-  id: string;
-  youtubeUrl: string;
-  analysisType: 'video' | 'audio';
-  timestamp: string;
-  reportContent: string;
 }
 
 // --- Helper Function: Get Synthesis Prompt ---
@@ -72,43 +61,40 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'At least two reports are required for synthesis' }, { status: 400 });
     }
 
-    // --- Read Selected Reports ---
-    console.log(`Synthesizing reports: ${reportIds.join(', ')}`);
-    let combinedContent = "";
-    let reportCount = 0;
+    // --- Fetch Selected Reports from Supabase ---
+    console.log(`Fetching reports for synthesis: ${reportIds.join(', ')}`);
 
-    for (const reportId of reportIds) {
-      // Basic validation
-      if (typeof reportId !== 'string' || reportId.includes('/') || reportId.includes('\\') || reportId.includes('..')) {
-         console.warn(`Skipping invalid report ID format: ${reportId}`);
-         continue;
-      }
-      const filePath = path.join(REPORTS_DIR, `${reportId}.json`);
-      try {
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        const reportData: Report = JSON.parse(fileContent);
-        combinedContent += `--- Report Start (ID: ${reportId}, URL: ${reportData.youtubeUrl}) ---\n\n`;
-        combinedContent += reportData.reportContent;
-        combinedContent += `\n\n--- Report End (ID: ${reportId}) ---\n\n`;
-        reportCount++;
-      } catch (error: unknown) {
-        const nodeError = error as { code?: string };
-        if (nodeError.code === 'ENOENT') {
-          console.warn(`Report file not found, skipping: ${reportId}`);
-        } else {
-          console.error(`Error reading or parsing report file ${reportId}:`, error);
-          // Decide if you want to throw an error or just skip the problematic file
-        }
-      }
+    const { data: reportsData, error: fetchError } = await supabase
+      .from('reports')
+      .select('id, youtube_url, report_content') // Select necessary fields
+      .in('id', reportIds); // Use .in() filter to get multiple reports by ID
+
+    if (fetchError) {
+      console.error("Supabase error fetching reports for synthesis:", fetchError);
+      throw fetchError;
     }
 
-    if (reportCount < 2) {
-         return NextResponse.json({ error: `Only ${reportCount} valid reports found, need at least 2 for synthesis.` }, { status: 400 });
+    if (!reportsData || reportsData.length === 0) {
+        return NextResponse.json({ error: `No valid reports found for the provided IDs.` }, { status: 404 });
+    }
+
+    // Validate if we found enough reports (in case some IDs were invalid)
+    if (reportsData.length < 2) {
+         return NextResponse.json({ error: `Only ${reportsData.length} valid reports found, need at least 2 for synthesis.` }, { status: 400 });
+    }
+
+    // --- Combine Report Content ---
+    let combinedContent = "";
+    for (const report of reportsData) {
+      // Use DB column names (snake_case)
+      combinedContent += `--- Report Start (ID: ${report.id}, URL: ${report.youtube_url}) ---\n\n`;
+      combinedContent += report.report_content;
+      combinedContent += `\n\n--- Report End (ID: ${report.id}) ---\n\n`;
     }
 
     // --- Call Gemini API for Synthesis ---
-    console.log(`Calling Gemini API for synthesis with combined content from ${reportCount} reports.`);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Use appropriate model
+    console.log(`Calling Gemini API for synthesis with combined content from ${reportsData.length} reports.`);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
      const generationConfig = {
        temperature: 0.7,
@@ -129,7 +115,6 @@ export async function POST(request: NextRequest) {
     const fullPrompt = `${synthesisPrompt}\n\n## Combined Report Data:\n\n${combinedContent}`;
 
     const result = await model.generateContent({
-        // Sending the combined text as a single part
         contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
         generationConfig,
         safetySettings,
@@ -158,8 +143,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ synthesisResult: responseText });
 
   } catch (error: unknown) {
-    console.error("Error in /api/synthesize:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during synthesis.";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in /api/synthesize:", errorMessage);
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error("Supabase error code:", (error as { code: string }).code);
+    }
+    return NextResponse.json({ error: "An unexpected error occurred during synthesis." }, { status: 500 });
   }
 }

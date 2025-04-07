@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
+    "@supabase/supabase-js": "^2.49.4",
     "next": "15.2.4",
+    "openai": "^4.91.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
@@ -25,6 +27,7 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
+    "supabase": "^2.20.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

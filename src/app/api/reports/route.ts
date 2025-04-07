@@ -1,74 +1,57 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
+import { supabase } from '@/lib/supabaseClient'; // Import the Supabase client
 
-// --- Configuration ---
-const REPORTS_DIR = path.join(process.cwd(), 'data', 'reports');
-
-// --- Helper Functions ---
-
-// Function to ensure reports directory exists
-async function ensureReportsDirExists() {
-  try {
-    await fs.access(REPORTS_DIR);
-  } catch {
-    await fs.mkdir(REPORTS_DIR, { recursive: true });
-    console.log(`Created reports directory: ${REPORTS_DIR}`);
-  }
-}
-
-// Interface for Report structure
-interface Report {
+// Interface for Report Metadata (matching GET response needs)
+// We derive the full type from Supabase schema now
+interface ReportMetadata {
   id: string;
-  youtubeUrl: string;
-  analysisType: 'video' | 'audio';
-  timestamp: string;
-  reportContent: string; // The Markdown content from Gemini
+  youtube_url: string; // Match DB column names
+  analysis_type: 'video' | 'audio'; // Match DB column names
+  created_at: string; // Match DB column names
+  // user_id?: string; // Optional: if you added user_id
 }
+
 
 // --- API Route Handlers ---
 
 // GET /api/reports - List all saved reports (metadata only)
 export async function GET() {
   console.log("Received GET request to /api/reports");
-  await ensureReportsDirExists();
 
   try {
-    const files = await fs.readdir(REPORTS_DIR);
-    const reportFiles = files.filter(file => file.endsWith('.json'));
+    // Fetch only necessary columns for listing, order by creation time
+    const { data, error } = await supabase
+      .from('reports')
+      .select('id, youtube_url, analysis_type, created_at') // Select specific columns
+      .order('created_at', { ascending: false }); // Order by timestamp descending
 
-    const reportsMetadata = await Promise.all(
-      reportFiles.map(async (file) => {
-        try {
-          const filePath = path.join(REPORTS_DIR, file);
-          const fileContent = await fs.readFile(filePath, 'utf-8');
-          const reportData: Report = JSON.parse(fileContent);
-          // Return only metadata, not the full content for listing
-          return {
-            id: reportData.id,
-            youtubeUrl: reportData.youtubeUrl,
-            analysisType: reportData.analysisType,
-            timestamp: reportData.timestamp,
-            // Optionally add a title or snippet here if needed later
-          };
-        } catch (readError) {
-          console.error(`Error reading or parsing report file ${file}:`, readError);
-          return null; // Skip corrupted files
-        }
-      })
-    );
+    if (error) {
+      console.error("Supabase error listing reports:", error);
+      throw error; // Throw error to be caught below
+    }
 
-    // Filter out any nulls from failed reads/parses
-    const validReports = reportsMetadata.filter(report => report !== null);
-    // Sort by timestamp descending (newest first)
-    validReports.sort((a, b) => new Date(b!.timestamp).getTime() - new Date(a!.timestamp).getTime());
+    // Map data to match the expected frontend structure if needed,
+    // otherwise, ensure frontend expects snake_case from DB
+    const reportsMetadata: ReportMetadata[] = data || [];
+
+    // If your frontend absolutely expects the old 'timestamp' field:
+    // const reportsMetadata = (data || []).map(report => ({
+    //   id: report.id,
+    //   youtubeUrl: report.youtube_url, // Map snake_case to camelCase
+    //   analysisType: report.analysis_type,
+    //   timestamp: report.created_at // Map created_at to timestamp
+    // }));
 
 
-    return NextResponse.json(validReports);
+    return NextResponse.json(reportsMetadata);
 
   } catch (error: unknown) {
-    console.error("Error listing reports:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error listing reports:", errorMessage);
+    // Check if it's a Supabase specific error for more details
+    if (error && typeof error === 'object' && 'code' in error) {
+         console.error("Supabase error code:", (error as { code: string }).code);
+    }
     return NextResponse.json({ error: "Failed to list reports." }, { status: 500 });
   }
 }
@@ -76,13 +59,13 @@ export async function GET() {
 // POST /api/reports - Save a new report
 export async function POST(request: NextRequest) {
   console.log("Received POST request to /api/reports");
-  await ensureReportsDirExists();
 
   try {
     const body = await request.json();
+    // Destructure matching frontend names first
     const { youtubeUrl, analysisType, reportContent } = body;
 
-    // --- Input Validation ---
+    // --- Input Validation -- -
     if (!youtubeUrl || typeof youtubeUrl !== 'string') {
       return NextResponse.json({ error: 'Missing or invalid youtubeUrl' }, { status: 400 });
     }
@@ -92,23 +75,42 @@ export async function POST(request: NextRequest) {
     if (!reportContent || typeof reportContent !== 'string') {
       return NextResponse.json({ error: 'Missing or invalid reportContent' }, { status: 400 });
     }
+    // Optional: Add validation for user_id if implementing user accounts
 
-    const newReport: Report = {
-      id: uuidv4(), // Generate a unique ID
-      youtubeUrl,
-      analysisType,
-      reportContent,
-      timestamp: new Date().toISOString(),
+    // Prepare data for Supabase (match column names)
+    const reportDataToInsert = {
+        youtube_url: youtubeUrl,
+        analysis_type: analysisType,
+        report_content: reportContent,
+        // user_id: userId // Add if implementing user accounts
     };
 
-    const filePath = path.join(REPORTS_DIR, `${newReport.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(newReport, null, 2)); // Pretty print JSON
+    const { data, error } = await supabase
+      .from('reports')
+      .insert(reportDataToInsert)
+      .select() // Select the inserted data to return it
+      .single(); // Expecting a single row to be inserted and returned
 
-    console.log(`Report saved successfully: ${filePath}`);
-    return NextResponse.json(newReport, { status: 201 }); // Return the created report
+    if (error) {
+      console.error("Supabase error saving report:", error);
+      throw error;
+    }
+
+    if (!data) {
+        throw new Error("Supabase insert operation did not return data.");
+    }
+
+    console.log(`Report saved successfully with ID: ${data.id}`);
+    // Return the created report data (or just a success message)
+    // The returned 'data' will have DB column names (snake_case)
+    return NextResponse.json(data, { status: 201 });
 
   } catch (error: unknown) {
-    console.error("Error saving report:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error saving report:", errorMessage);
+     if (error && typeof error === 'object' && 'code' in error) {
+          console.error("Supabase error code:", (error as { code: string }).code);
+     }
     return NextResponse.json({ error: "Failed to save report." }, { status: 500 });
   }
 }
@@ -116,7 +118,6 @@ export async function POST(request: NextRequest) {
 // DELETE /api/reports?id={reportId} - Delete a specific report
 export async function DELETE(request: NextRequest) {
     console.log("Received DELETE request to /api/reports");
-    await ensureReportsDirExists();
 
     const { searchParams } = new URL(request.url);
     const reportId = searchParams.get('id');
@@ -125,26 +126,41 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Missing report ID parameter' }, { status: 400 });
     }
 
-    // Basic validation against path traversal
-    if (reportId.includes('/') || reportId.includes('\\') || reportId.includes('..')) {
+    // UUID validation can be added here if needed
+    if (typeof reportId !== 'string' /* || !isValidUUID(reportId) */) {
          return NextResponse.json({ error: 'Invalid report ID format' }, { status: 400 });
     }
 
-    const filePath = path.join(REPORTS_DIR, `${reportId}.json`);
-
     try {
-        await fs.access(filePath); // Check if file exists
-        await fs.unlink(filePath); // Delete the file
-        console.log(`Report deleted successfully: ${filePath}`);
-        return NextResponse.json({ message: 'Report deleted successfully' }, { status: 200 });
-    } catch (error: unknown) {
-        // For Node.js filesystem errors that have a code property
-        const nodeError = error as { code?: string };
-        if (nodeError.code === 'ENOENT') {
-            console.warn(`Attempted to delete non-existent report: ${reportId}`);
-            return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+        const { error } = await supabase
+            .from('reports')
+            .delete()
+            .eq('id', reportId); // Match the 'id' column with the provided reportId
+
+        if (error) {
+            console.error(`Supabase error deleting report ${reportId}:`, error);
+            // Handle specific errors, e.g., foreign key constraints if applicable
+            throw error;
         }
-        console.error(`Error deleting report ${reportId}:`, error);
+
+        // Note: Supabase delete doesn't error if the row doesn't exist by default.
+        // If you need to confirm deletion happened, you might check the 'count' property
+        // in the response if available/needed, or perform a select first (less efficient).
+
+        console.log(`Report deleted successfully (or did not exist): ${reportId}`);
+        return NextResponse.json({ message: 'Report deleted successfully' }, { status: 200 });
+
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Error deleting report ${reportId}:`, errorMessage);
+        if (error && typeof error === 'object' && 'code' in error) {
+             console.error("Supabase error code:", (error as { code: string }).code);
+        }
+        // Check for common Supabase error codes if needed
+        // const pgError = error as { code?: string };
+        // if (pgError.code === '23503') { // Foreign key violation
+        //     return NextResponse.json({ error: 'Cannot delete report due to related data.' }, { status: 409 });
+        // }
         return NextResponse.json({ error: 'Failed to delete report.' }, { status: 500 });
     }
 }
