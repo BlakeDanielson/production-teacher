@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Basic CSS reset for border handling without using border-border */
+* {
+  border-color: hsl(240 3.7% 15.9%);
+}
+
 /* Add any global custom styles below if needed */
 body {
   /* Example: Set a default background color */
@@ -56,9 +61,7 @@ body {
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  /* Remove the problematic border-border utility */
   body {
     @apply bg-background text-foreground;
   }

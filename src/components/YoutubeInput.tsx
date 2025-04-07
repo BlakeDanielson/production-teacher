@@ -141,7 +141,7 @@ const YoutubeInput: React.FC<YoutubeInputProps> = ({
       
       {/* Video preview */}
       {isValidUrl && videoInfo && videoInfo.thumbnailUrl && (
-        <Card className="overflow-hidden bg-card/60 border-border/30 smooth-transition">
+        <Card className="overflow-hidden bg-card/60 border-[hsl(var(--border))]/30 smooth-transition">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="relative w-24 h-14 overflow-hidden rounded">
               <img 

@@ -114,7 +114,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     <div className="w-full space-y-3">
       <Card
         className={`relative border-2 border-dashed rounded-lg p-6 cursor-pointer transition-all duration-300 group ${
-          isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50 border-border'
+          isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50 border-[hsl(var(--border))]'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
