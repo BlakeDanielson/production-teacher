@@ -8,6 +8,7 @@ import fs from 'fs'; // Import standard fs for sync operations
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { updateProgress } from '@/lib/progressTracker'; // Import the progress tracker
 
 const execPromise = promisify(exec);
 const TEMP_DIR = path.join(os.tmpdir(), 'production_teacher_media'); // Use OS temp dir
@@ -192,9 +193,15 @@ interface RequestBody {
 
 // POST handler for the analyze endpoint
 export async function POST(request: Request) {
+  // Declare jobId in the outer scope so it's available in all catch blocks
+  let extractedJobId: string | undefined;
+  
   try {
     const data = await request.json() as RequestBody;
     const { youtubeUrl, analysisType, googleApiKey, customPrompt, jobId } = data;
+    
+    // Store the jobId for use in catch blocks
+    extractedJobId = jobId;
     
     if (!youtubeUrl) {
       return NextResponse.json({ error: "YouTube URL is required" }, { status: 400 });
@@ -207,10 +214,23 @@ export async function POST(request: Request) {
     // Log initial request
     console.log(`Analysis request received (Job ID: ${jobId || 'none'})`);
     
+    // Update progress: Validating stage
+    if (jobId) {
+      updateProgress(jobId, 'validating', 10, 'Validating YouTube URL and preparing analysis');
+    }
+    
     // Extract YouTube ID
     const youtubeId = extractYoutubeVideoId(youtubeUrl);
     if (!youtubeId) {
+      if (jobId) {
+        updateProgress(jobId, 'error', 0, 'Invalid YouTube URL provided');
+      }
       return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
+    }
+    
+    // Update progress: Downloading stage
+    if (jobId) {
+      updateProgress(jobId, 'downloading', 20, 'Downloading media from YouTube...');
     }
     
     // Try to download the content
@@ -220,9 +240,22 @@ export async function POST(request: Request) {
       
       // Check file size - videos too large may fail
       const stats = fs.statSync(filePath);
-      
       const fileSizeInMB = stats.size / (1024 * 1024);
+      
+      // Update progress: Processing stage with file size info
+      if (jobId) {
+        updateProgress(
+          jobId, 
+          'processing', 
+          50, 
+          `Downloaded ${Math.round(fileSizeInMB * 10) / 10}MB, preparing for analysis`
+        );
+      }
+      
       if (fileSizeInMB > 100) {
+        if (jobId) {
+          updateProgress(jobId, 'error', 0, `Video file is too large (${Math.round(fileSizeInMB)}MB). Please try a shorter video or use audio-only analysis.`);
+        }
         await cleanup();
         return NextResponse.json({ 
           error: `Video file is too large (${Math.round(fileSizeInMB)}MB). Please try a shorter video or use audio-only analysis.`,
@@ -230,21 +263,46 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
+      // Update progress: Analyzing stage
+      if (jobId) {
+        updateProgress(jobId, 'analyzing', 70, 'Running AI analysis on media content...');
+      }
+      
       // Analyze the content
       try {
         console.log(`Analyzing content: ${filePath}`);
         // Pass in custom prompt if provided
         const reportContent = await analyzeContentWithGemini(filePath, analysisType, googleApiKey, customPrompt);
         
+        // Update progress: Analyzing_pending stage (waiting for final processing)
+        if (jobId) {
+          updateProgress(jobId, 'analyzing_pending', 90, 'Finalizing analysis results...');
+        }
+        
         // Clean up after successful analysis
         await cleanup();
         console.log(`✅ Analysis complete for job ${jobId || 'none'}`);
+        
+        // Update progress: Complete stage
+        if (jobId) {
+          updateProgress(jobId, 'complete', 100, 'Analysis complete!');
+        }
         
         return NextResponse.json({ 
           reportContent,
           jobId
         });
       } catch (analysisError) {
+        // Update progress: Error stage
+        if (jobId) {
+          updateProgress(
+            jobId, 
+            'error', 
+            0, 
+            `Analysis failed: ${analysisError instanceof Error ? analysisError.message : 'Unknown error'}`
+          );
+        }
+        
         await cleanup();
         console.error("Error during analysis:", analysisError instanceof Error ? analysisError.message : String(analysisError));
         return NextResponse.json({ 
@@ -253,6 +311,16 @@ export async function POST(request: Request) {
         }, { status: 500 });
       }
     } catch (downloadError) {
+      // Update progress: Error stage for download failures
+      if (jobId) {
+        updateProgress(
+          jobId, 
+          'error', 
+          0, 
+          `Download failed: ${downloadError instanceof Error ? downloadError.message : 'Unknown error'}`
+        );
+      }
+      
       console.error("Error downloading media:", downloadError instanceof Error ? downloadError.message : String(downloadError));
       return NextResponse.json({ 
         error: `Failed to download media: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`,
@@ -260,10 +328,20 @@ export async function POST(request: Request) {
       }, { status: 500 });
     }
   } catch (error) {
+    // Update progress: Error stage for any other errors  
+    if (extractedJobId) {
+      updateProgress(
+        extractedJobId, 
+        'error', 
+        0, 
+        `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+    
     console.error("Error in analyze API:", error instanceof Error ? error.message : String(error));
     return NextResponse.json({ 
       error: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
-      jobId: null
+      jobId: extractedJobId || null
     }, { status: 500 });
   }
 }
