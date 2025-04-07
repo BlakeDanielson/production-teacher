@@ -85,6 +85,13 @@ export async function POST(request: NextRequest) {
         // user_id: userId // Add if implementing user accounts
     };
 
+    // Debug
+    console.log("Saving report with data:", {
+      youtubeUrl: youtubeUrl.substring(0, 30) + '...',
+      analysisType,
+      contentLength: reportContent.length
+    });
+
     const { data, error } = await supabase
       .from('reports')
       .insert(reportDataToInsert)
@@ -105,12 +112,12 @@ export async function POST(request: NextRequest) {
     // The returned 'data' will have DB column names (snake_case)
     return NextResponse.json(data, { status: 201 });
 
-  } catch (error: unknown) {
+  } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error saving report:", errorMessage);
-     if (error && typeof error === 'object' && 'code' in error) {
-          console.error("Supabase error code:", (error as { code: string }).code);
-     }
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error("Supabase error code:", (error as { code: string }).code);
+    }
     return NextResponse.json({ error: "Failed to save report." }, { status: 500 });
   }
 }
