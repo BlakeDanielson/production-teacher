@@ -14,20 +14,13 @@ import { IconUpload, IconFileText, IconAlertTriangle, IconCheck, IconX, IconAnal
 // Re-create JobStatusDisplay logic within this component for now
 import { Progress } from '@mantine/core'; // Using Mantine Progress
 
-// Define types locally
-type TranscriptionQuality = 'low' | 'medium' | 'high';
-type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
-type AnalysisModel = 'gemini' | 'gpt4';
-
-// Interface for Job Status (from API)
-interface JobStatus {
-  id: string;
-  status: 'created' | 'processing' | 'completed' | 'failed';
-  progress?: number;
-  message?: string;
-  error?: string;
-  result?: any;
-}
+// Import shared types
+import { 
+  TranscriptionQuality, 
+  TranscriptionFormat, 
+  AnalysisModel,
+  JobStatus
+} from '@/types';
 
 export default function TranscriptionPage() {
   // --- Transcription State --- 

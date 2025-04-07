@@ -9,23 +9,17 @@ import {
   Container, SimpleGrid, Paper, Center, AspectRatio, Image, Badge, Divider,
   ThemeIcon 
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications'; // Correct import
+import { notifications } from '@mantine/notifications'; // Corrected import path
 import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy, IconCheck, IconX } from '@tabler/icons-react';
+
+// Import shared types
+import { AnalysisType, ReportMetadata } from '@/types'; 
 
 // Constants for warnings
 const VIDEO_LENGTH_WARNING_MINUTES = 15; // Example: warn if video is longer than 15 minutes
 const AUDIO_LENGTH_WARNING_MINUTES = 30; // Warn for audio longer than 30 minutes
 
-// Interface for Report Metadata (matching backend GET response)
-interface ReportMetadata {
-  id: string;
-  youtube_url: string;
-  analysis_type: 'video' | 'audio';
-  created_at: string;
-}
-
 // Re-define types locally for now
-type AnalysisType = 'video' | 'audio';
 type TranscriptionQuality = 'low' | 'medium' | 'high';
 type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
 type AnalysisModel = 'gemini' | 'gpt4';
@@ -35,7 +29,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [reportContent, setReportContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [analysisTypeForSave, setAnalysisTypeForSave] = useState<AnalysisType | null>(null); // Keep this for saving from main page
+  const [analysisTypeForSave, setAnalysisTypeForSave] = useState<AnalysisType | null>(null); // Uses shared type
   
   // New state variables
   const [videoInfo, setVideoInfo] = useState<{ 

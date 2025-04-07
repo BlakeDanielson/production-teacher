@@ -10,14 +10,8 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconX, IconAlertTriangle, IconTrash, IconCopy, IconFlask } from '@tabler/icons-react'; // For notifications
 import ReactMarkdown from "react-markdown"; // For synthesis result
 
-// Define types locally
-// TODO: Move types to a shared location (e.g., src/types.ts)
-interface ReportMetadata {
-  id: string;
-  youtube_url: string;
-  analysis_type: 'video' | 'audio';
-  created_at: string;
-}
+// Import shared types
+import { ReportMetadata } from '@/types';
 
 export default function ReportsPage() {
   // --- Reports State --- 
@@ -120,7 +114,7 @@ export default function ReportsPage() {
   };
 
   // --- UI Rendering --- 
-  const rows = savedReports.map((report) => (
+  const rows = savedReports.map((report: ReportMetadata) => (
     <Table.Tr key={report.id}>
       <Table.Td>
         <Checkbox
