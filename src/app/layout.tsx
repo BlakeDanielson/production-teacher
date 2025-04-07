@@ -3,8 +3,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@mantine/core/styles.css"; // Import Mantine core styles
+import "@mantine/notifications/styles.css"; // Import notification styles
 import "./globals.css"; 
 import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink } from '@mantine/core';
+import { Notifications } from '@mantine/notifications'; // Import Notifications provider
 import { useDisclosure } from '@mantine/hooks';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation'; // Import usePathname
@@ -46,6 +48,7 @@ export default function RootLayout({
       */}
       <body className={`${inter.variable}`}> 
         <MantineProvider defaultColorScheme="dark"> 
+          <Notifications position="top-right" /> {/* Add Notifications container */}
           <AppShell
             header={{ height: 60 }}
             navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened, desktop: false } }}
