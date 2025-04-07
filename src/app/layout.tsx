@@ -1,77 +1,88 @@
+'use client'; // Required for Mantine context
+
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { SidebarNav } from "@/components/SidebarNav"; 
-import { Separator } from "@/components/ui/separator";
-import { Youtube, FileCheck, BarChart, Settings } from 'lucide-react'; // Import icons
+import "@mantine/core/styles.css"; // Import Mantine core styles
+import "./globals.css"; 
+import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // Import usePathname
+import { IconBrandYoutube, IconFileCheck, IconChartBar, IconSettings } from '@tabler/icons-react'; // Tabler icons
 
 const inter = Inter({ 
   subsets: ["latin"],
   variable: "--font-sans"
 });
 
-export const metadata: Metadata = {
-  title: "Production Teacher",
-  description: "AI-powered analysis for video creators",
-};
+// Define nav items data
+const navItems = [
+  { href: "/", label: "YouTube Analysis", icon: IconBrandYoutube },
+  { href: "/transcription", label: "Transcription", icon: IconFileCheck },
+  { href: "/reports", label: "Reports", icon: IconChartBar },
+  { href: "/settings", label: "Settings", icon: IconSettings },
+];
 
-// Sidebar navigation items
-const sidebarNavItems = [
-  {
-    title: "YouTube Analysis",
-    href: "/", 
-    icon: <Youtube size={18} />
-  },
-  {
-    title: "Transcription",
-    href: "/transcription", // We'll need to move transcription logic later
-    icon: <FileCheck size={18} />
-  },
-  {
-    title: "Reports",
-    href: "/reports", // We'll need to move reports logic later
-    icon: <BarChart size={18} />
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings size={18} />
-  },
-]
+// Removed Metadata export as it can cause issues in client components
+// export const metadata: Metadata = { ... }; 
+// You might need to handle metadata differently, perhaps in page.tsx or a dedicated head.js
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [opened, { toggle }] = useDisclosure(); // Hook for mobile burger menu
+  const pathname = usePathname(); // Get current path
+
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans`}>
-        <div className="container mx-auto p-4 md:p-10">
-          {/* Header for all screen sizes */}
-          <div className="space-y-0.5 mb-6">
-            <h2 className="text-2xl font-bold tracking-tight">Production Teacher</h2>
-            <p className="text-muted-foreground">
-              Analyze content and manage your reports.
-            </p>
-          </div>
-          <Separator className="mb-6" />
+    <html lang="en">
+      <head>
+        <ColorSchemeScript defaultColorScheme="dark" /> 
+      </head>
+      {/* 
+        Removed dark class from html and font-sans from body, 
+        MantineProvider will handle theme and font application 
+      */}
+      <body className={`${inter.variable}`}> 
+        <MantineProvider defaultColorScheme="dark"> 
+          <AppShell
+            header={{ height: 60 }}
+            navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened, desktop: false } }}
+            padding="md"
+          >
+            <AppShell.Header>
+              <Group h="100%" px="md">
+                {/* Burger menu for mobile */}
+                <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+                {/* Header content - e.g., Logo or Title */}
+                <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 'bold', fontSize: '1.25rem' }}>
+                  Production Teacher
+                </h1>
+              </Group>
+            </AppShell.Header>
 
-          {/* Main layout with sidebar for larger screens */}
-          <div className="flex flex-col lg:flex-row lg:space-x-12">
-            {/* Sidebar - hidden on small screens, shown on lg and up */}
-            <aside className="hidden lg:block lg:w-1/5 mb-6 lg:mb-0">
-              <SidebarNav items={sidebarNavItems} />
-            </aside>
+            <AppShell.Navbar p="md">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.label}
+                  href={item.href}
+                  label={item.label}
+                  leftSection={<item.icon size="1rem" stroke={1.5} />}
+                  component={Link} // Use Next.js Link for client-side routing
+                  onClick={toggle} // Close navbar on mobile click
+                  active={pathname === item.href} // Set active state based on path
+                  variant="subtle" // Use subtle variant for better look
+                />
+              ))}
+            </AppShell.Navbar>
 
-            {/* Main content area - renders children ONCE */}
-            <main className="flex-1">
+            <AppShell.Main>
+              {/* Main content area */}
               {children} 
-            </main>
-          </div>
-        </div>
-        <Toaster />
+            </AppShell.Main>
+          </AppShell>
+        </MantineProvider>
       </body>
     </html>
   );

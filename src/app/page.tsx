@@ -2,27 +2,14 @@
 
 import { useState, useEffect } from "react"; // Added useEffect
 import ReactMarkdown from "react-markdown";
-import FileUpload from "@/components/FileUpload";
-import JobStatusDisplay from "@/components/JobStatusDisplay";
-import YoutubeInput from "@/components/YoutubeInput";
 
-// Shadcn UI Components
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-
-// Icons
-import { Play, Music, FileCheck, Loader2, Check, AlertTriangle, TextSearch, Youtube, BarChart } from "lucide-react";
-
-type AnalysisType = 'video' | 'audio';
-type TranscriptionQuality = 'low' | 'medium' | 'high';
-type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
-type AnalysisModel = 'gemini' | 'gpt4';
+// Mantine components
+import { 
+  TextInput, Button, Card, Alert, Loader, Text, Title, Group, Stack, 
+  Container, SimpleGrid, Paper, Center, AspectRatio, Image, Badge, Divider,
+  ThemeIcon // Added ThemeIcon
+} from '@mantine/core';
+import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy } from '@tabler/icons-react';
 
 // Constants for warnings
 const VIDEO_LENGTH_WARNING_MINUTES = 15; // Example: warn if video is longer than 15 minutes
@@ -35,6 +22,12 @@ interface ReportMetadata {
   analysis_type: 'video' | 'audio';
   created_at: string;
 }
+
+// Re-define types locally for now
+type AnalysisType = 'video' | 'audio';
+type TranscriptionQuality = 'low' | 'medium' | 'high';
+type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
+type AnalysisModel = 'gemini' | 'gpt4';
 
 export default function Home() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -155,28 +148,28 @@ export default function Home() {
         setShowSizeWarning(true);
       }
     } else {
+      setVideoInfo(null); // Clear info if invalid
       setShowSizeWarning(false);
-      // Only show error if URL is invalid AND the input field is not empty
       if (!isValid && youtubeUrl) setError("Invalid YouTube URL"); 
-      else setError(null); // Clear error if input is empty
+      else setError(null);
     }
   };
 
   // Modify the existing handleAnalyze function to check for warnings
-  const handleAnalyze = async (analysisType: AnalysisType) => {
+  const handleAnalyze = async (type: AnalysisType) => {
     if (!youtubeUrl) {
       setError("Please enter a YouTube URL.");
       return;
     }
     
     // If analyzing a video that's too long, show confirmation
-    if (analysisType === 'video' && videoInfo?.duration && videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES) {
+    if (type === 'video' && videoInfo?.duration && videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES) {
       if (!confirm(`This video appears to be ${videoInfo.duration} minutes long, which might exceed Gemini's file size limits. Full video analysis might fail. Continue anyway?\n\nTip: Try audio-only analysis for long videos.`)) {
         return;
       }
     }
     // If analyzing audio that's very long, show a milder warning
-    else if (analysisType === 'audio' && videoInfo?.duration && videoInfo.duration > AUDIO_LENGTH_WARNING_MINUTES) {
+    else if (type === 'audio' && videoInfo?.duration && videoInfo.duration > AUDIO_LENGTH_WARNING_MINUTES) {
       if (!confirm(`This audio is ${videoInfo.duration} minutes long, which might take longer to process. Continue?`)) {
         return;
       }
@@ -185,14 +178,13 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setReportContent(null);
+    setAnalysisTypeForSave(null);
 
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ youtubeUrl, analysisType }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeUrl, analysisType: type }),
       });
 
       const data = await response.json();
@@ -202,7 +194,7 @@ export default function Home() {
       }
 
       setReportContent(data.reportContent);
-      setAnalysisTypeForSave(analysisType);
+      setAnalysisTypeForSave(type);
 
     } catch (err) {
       console.error("Error calling analyze API:", err);
@@ -214,7 +206,8 @@ export default function Home() {
 
   const handleSaveReport = async () => {
     if (!reportContent || !analysisTypeForSave || !youtubeUrl) {
-      setError("Cannot save report: Missing content, analysis type, or original URL.");
+      // Use Mantine notifications instead of alert
+      console.error("Cannot save report: Missing data");
       return;
     }
     try {
@@ -222,9 +215,9 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          youtube_url: youtubeUrl, // Changed to match Supabase column
-          analysis_type: analysisTypeForSave, // Changed to match Supabase column
-          report_content: reportContent, // Changed to match Supabase column
+          youtube_url: youtubeUrl,
+          analysis_type: analysisTypeForSave,
+          report_content: reportContent,
         }),
       });
       if (!response.ok) {
@@ -403,141 +396,144 @@ export default function Home() {
   };
 
   return (
-    <div className="space-y-8">
+    <Stack gap="xl">
       {/* Section Title */}
       <div>
-        <h3 className="text-lg font-medium">YouTube Video Analysis</h3>
-        <p className="text-sm text-muted-foreground">
+        <Title order={2}>YouTube Video Analysis</Title>
+        <Text c="dimmed">
           Analyze YouTube videos for content insights and production quality feedback.
-        </p>
+        </Text>
       </div>
-      <Separator />
+      <Divider />
 
-      {/* YouTube URL Input Card */}
-      <Card className="bg-card/60 backdrop-blur-sm border border-[hsl(var(--border))]/50 smooth-transition card-hover">
-        <CardHeader>
-          <CardTitle className="text-base">Input Video URL</CardTitle> {/* Adjusted size */}
-        </CardHeader>
-        <CardContent>
-          <YoutubeInput 
+      {/* Input Card */}
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Stack gap="md">
+          <TextInput
+            label="YouTube Video URL"
+            placeholder="https://www.youtube.com/watch?v=..."
             value={youtubeUrl}
-            onChange={setYoutubeUrl}
-            onValidated={handleYoutubeValidation}
+            onChange={(event) => setYoutubeUrl(event.currentTarget.value)}
+            error={error === "Invalid YouTube URL" ? error : undefined}
             disabled={isLoading}
-            // Removed label, relying on CardTitle
+            size="md"
           />
           
-          {/* Video Info Display */}
-          {videoInfo?.duration && (
-            <div className="mt-3">
-              <p className={`text-xs ${videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES ? "text-amber-400 font-medium" : "text-muted-foreground"}`}>
-                Estimated Duration: {videoInfo.duration} minutes
-              </p>
-            </div>
+          {videoInfo && videoInfo.thumbnailUrl && (
+            <Paper p="xs" radius="sm" withBorder>
+              <Group wrap="nowrap">
+                <Image
+                  src={videoInfo.thumbnailUrl}
+                  alt={videoInfo.title || 'Video thumbnail'}
+                  radius="sm"
+                  h={60}
+                  w="auto"
+                  fit="contain"
+                />
+                <div style={{ flex: 1 }}>
+                  <Text size="sm" fw={500} truncate>
+                    {videoInfo.title || 'YouTube Video'}
+                  </Text>
+                  {videoInfo.duration && (
+                    <Text size="xs" c="dimmed">
+                      Duration: ~{videoInfo.duration} min
+                    </Text>
+                  )}
+                  {videoInfo.id && <Badge size="sm" variant="light" mt={4}>ID: {videoInfo.id.substring(0, 6)}...</Badge>}
+                </div>
+              </Group>
+            </Paper>
           )}
-          
-          {/* Size Warning Message */}
+
           {showSizeWarning && (
-            <Alert className="mt-4 border-amber-500/40 bg-amber-500/10 text-xs p-3">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <AlertDescription className="ml-2 text-amber-400">
-                Video length might exceed limits for full analysis. Consider Audio Only.
-              </AlertDescription>
+            <Alert 
+              variant="light" 
+              color="yellow" 
+              title="Length Warning" 
+              icon={<IconAlertTriangle size={16} />}
+              radius="sm"
+            >
+              Video length might exceed limits for full analysis. Consider Audio Only.
             </Alert>
           )}
-        </CardContent>
-        <CardFooter className="flex justify-center gap-4">
+          
+          {error && error !== "Invalid YouTube URL" && (
+            <Alert variant="light" color="red" title="Error" icon={<IconAlertTriangle size={16}/>} radius="sm">
+              {error}
+            </Alert>
+          )}
+        </Stack>
+
+        <Group justify="center" mt="xl"> 
           <Button
+            leftSection={<IconPlayerPlay size={16}/>}
             onClick={() => handleAnalyze('video')}
             disabled={isLoading || !youtubeUrl}
-            variant="default"
-            className="bg-gradient-purple-pink hover:opacity-90"
+            loading={isLoading && analysisTypeForSave === 'video'}
+            variant="gradient"
+            gradient={{ from: 'violet', to: 'pink', deg: 90 }}
+            size="sm"
           >
-            {isLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</>
-            ) : (
-              <><Play className="mr-2 h-4 w-4" />Analyze Full Video</>
-            )}
+            Analyze Full Video
           </Button>
           
           <Button
+            leftSection={<IconMusic size={16}/>}
             onClick={() => handleAnalyze('audio')}
             disabled={isLoading || !youtubeUrl}
+            loading={isLoading && analysisTypeForSave === 'audio'}
             variant="outline"
-            className="border-pink-600/40 text-pink-600 hover:border-pink-600 hover:bg-pink-600/10"
+            color="pink"
+            size="sm"
           >
-            {isLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</>
-            ) : (
-              <><Music className="mr-2 h-4 w-4" />Analyze Audio Only</>
-            )}
+            Analyze Audio Only
           </Button>
-        </CardFooter>
+        </Group>
       </Card>
 
       {/* Results Card */}
-      <Card className="bg-card/60 backdrop-blur-sm border border-[hsl(var(--border))]/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between"> {/* Adjusted size */}
-            <span>Analysis Report</span>
-            {reportContent && !isLoading && (
-              <Button
-                onClick={handleSaveReport}
-                size="sm"
-                variant="outline" // Changed variant
-                className="border-green-600/40 text-green-600 hover:border-green-600 hover:bg-green-600/10"
-              >
-                <FileCheck className="mr-2 h-4 w-4" />
-                Save Report
-              </Button>
-            )}
-          </CardTitle>
-        </CardHeader>
-        
-        <CardContent className="min-h-[200px]">
-          {isLoading && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center space-x-4 py-8">
-                <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                <p className="text-muted-foreground">Analyzing your content...</p>
-              </div>
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-[90%]" />
-                <Skeleton className="h-4 w-[80%]" />
-              </div>
-            </div>
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Group justify="space-between" mb="md">
+          <Title order={4}>Analysis Report</Title>
+          {reportContent && !isLoading && (
+            <Button
+              leftSection={<IconDeviceFloppy size={16}/>}
+              onClick={handleSaveReport}
+              size="xs"
+              variant="light"
+              color="green"
+            >
+              Save Report
+            </Button>
           )}
-          
-          {error && (
-            <Alert variant="destructive" className="my-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+        </Group>
+        
+        <Paper p="md" radius="sm" bg="dark.8" miw={200} mih={200}>
+          {isLoading && (
+            <Center style={{ height: '200px' }}>
+              <Loader />
+              <Text ml="sm" c="dimmed">Analyzing...</Text>
+            </Center>
           )}
           
           {reportContent && !error && (
-            <div className="prose-custom">
-              <ReactMarkdown>{reportContent}</ReactMarkdown>
-            </div>
+            <ReactMarkdown 
+            >
+              {reportContent}
+            </ReactMarkdown>
           )}
           
           {!isLoading && !error && !reportContent && (
-            <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
-              <TextSearch className="h-12 w-12 mb-4 opacity-30" />
-              <p>Enter a URL and click Analyze to see the report here.</p>
-            </div>
+            <Center style={{ height: '200px', flexDirection: 'column' }}>
+              <ThemeIcon variant="light" size="xl" mb="md" color="gray">
+                <IconSearch size={24} />
+              </ThemeIcon>
+              <Text c="dimmed">Enter a URL and click Analyze to see the report here.</Text>
+            </Center>
           )}
-        </CardContent>
+        </Paper>
       </Card>
-      
-      {/* 
-        NOTE: The Transcription and Reports sections have been removed from this page.
-        Their functionality would need to be moved to separate pages 
-        (e.g., /transcription, /reports) and routed via the sidebar navigation.
-      */}
-    </div>
+    </Stack>
   );
 }
 

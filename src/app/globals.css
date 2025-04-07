@@ -2,16 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Basic CSS reset for border handling without using border-border */
-* {
-  border-color: hsl(240 3.7% 15.9%);
-}
-
-/* Add any global custom styles below if needed */
-body {
-  /* Example: Set a default background color */
-  /* background-color: #f0f0f0; */
-}
+/* 
+  Removed Shadcn CSS variables and custom styles. 
+  Mantine setup will handle base styles.
+*/
 
 @layer base {
   :root {
@@ -38,6 +32,7 @@ body {
   }
  
   .dark {
+    /* Ensure dark mode variables are defined */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
@@ -60,10 +55,14 @@ body {
   }
 }
 
-/* Apply base styles directly instead of using utility classes */
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+@layer base {
+  * {
+    border-color: hsl(var(--border)); 
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
 }
 
 /* Custom gradient backgrounds - Using direct CSS instead of Tailwind utilities */
