@@ -1,70 +1,51 @@
 'use client';
 
-import { useState, useEffect } from "react"; 
+import { useEffect, useState } from "react";
 import { Title, Text, Stack, TextInput, PasswordInput, Button, Group, Select, Alert, Card } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { IconDeviceFloppy, IconKey, IconSettings, IconCheck, IconX } from '@tabler/icons-react';
-
-// Define type for analysis model preference if needed
-type AnalysisModel = 'gemini' | 'gpt4';
+import { useAppStore } from '@/store/store';
+import { AnalysisModel } from '@/types';
 
 export default function SettingsPage() {
-  // --- State --- 
-  const [googleApiKey, setGoogleApiKey] = useState('');
-  const [openaiApiKey, setOpenaiApiKey] = useState('');
-  const [defaultAnalysisModel, setDefaultAnalysisModel] = useState<AnalysisModel>('gemini');
-  const [isLoading, setIsLoading] = useState(false);
+  // --- Get state and actions from Zustand store --- 
+  const {
+    googleApiKey,
+    openaiApiKey,
+    defaultAnalysisModel,
+    isSettingsLoaded,
+    setGoogleApiKey,
+    setOpenaiApiKey,
+    setDefaultAnalysisModel,
+    loadSettings,
+    saveSettings
+  } = useAppStore();
+  
   const [isSaving, setIsSaving] = useState(false);
 
   // --- Effects --- 
-  // Load settings from local storage on component mount
-  useEffect(() => {
-    const storedGoogleKey = localStorage.getItem('googleApiKey');
-    const storedOpenaiKey = localStorage.getItem('openaiApiKey');
-    const storedModel = localStorage.getItem('defaultAnalysisModel') as AnalysisModel;
-    if (storedGoogleKey) setGoogleApiKey(storedGoogleKey);
-    if (storedOpenaiKey) setOpenaiApiKey(storedOpenaiKey);
-    if (storedModel) setDefaultAnalysisModel(storedModel);
-  }, []);
+  // Load settings via store action on mount (already called outside component)
+  // useEffect(() => {
+  //   if (!isSettingsLoaded) {
+  //     loadSettings(); 
+  //   }
+  // }, [isSettingsLoaded, loadSettings]);
 
   // --- Handlers --- 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      // Basic validation (can be enhanced)
-      if (!googleApiKey || !openaiApiKey) {
-         notifications.show({ 
-           title: 'Missing Keys', 
-           message: 'Please provide both Google Gemini and OpenAI API keys.', 
-           color: 'orange' 
-         });
-         setIsSaving(false);
-         return;
-      }
-      
-      // Save to local storage (replace with API call later if needed)
-      localStorage.setItem('googleApiKey', googleApiKey);
-      localStorage.setItem('openaiApiKey', openaiApiKey);
-      localStorage.setItem('defaultAnalysisModel', defaultAnalysisModel);
-      
-      notifications.show({ 
-        title: 'Settings Saved', 
-        message: 'Your settings have been saved successfully.', 
-        color: 'green',
-        icon: <IconCheck />
-      });
+      await saveSettings();
     } catch (error) {
-      console.error("Error saving settings:", error);
-       notifications.show({ 
-         title: 'Error', 
-         message: 'Could not save settings.', 
-         color: 'red',
-         icon: <IconX />
-       });
+      console.error("Save settings failed (error caught in component)", error);
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Prevent rendering form until settings are loaded from localStorage
+  if (!isSettingsLoaded) {
+    return <Text>Loading settings...</Text>;
+  }
 
   return (
     <Stack gap="xl">
@@ -74,11 +55,11 @@ export default function SettingsPage() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
            <Title order={4}>API Keys</Title>
-           <Text size="sm" c="dimmed">Enter your API keys for Google Gemini and OpenAI. These are stored securely in your browser's local storage and are not sent anywhere else unless used for analysis.</Text>
+           <Text size="sm" c="dimmed">Enter your API keys for Google Gemini and OpenAI. These are stored securely in your browser's local storage.</Text>
            <PasswordInput
              label="Google Gemini API Key"
              placeholder="Enter your Google API Key"
-             value={googleApiKey}
+             value={googleApiKey || ''}
              onChange={(event) => setGoogleApiKey(event.currentTarget.value)}
              required
              leftSection={<IconKey size={16} />}
@@ -86,7 +67,7 @@ export default function SettingsPage() {
            <PasswordInput
              label="OpenAI API Key"
              placeholder="Enter your OpenAI API Key (e.g., sk-...)"
-             value={openaiApiKey}
+             value={openaiApiKey || ''}
              onChange={(event) => setOpenaiApiKey(event.currentTarget.value)}
              required
              leftSection={<IconKey size={16} />}
