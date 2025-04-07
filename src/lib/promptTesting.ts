@@ -422,10 +422,74 @@ export async function runPromptBatchTest(
 ): Promise<TestResult[]> {
   const results: TestResult[] = [];
   const prompts = getAvailablePrompts().filter(p => promptIds.includes(p.id));
+  const totalPrompts = prompts.length;
+  let completedPrompts = 0;
+  
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined';
+  
+  // Find the updateProgress function if it exists in this environment
+  let updateProgress: ((jobId: string, stage: any, progress: number, details?: string) => void) | null = null;
+  
+  if (isBrowser) {
+    try {
+      // Dynamically import to avoid server-side issues
+      const progressModule = await import('./progressTracker');
+      updateProgress = progressModule.updateProgress;
+    } catch (error) {
+      console.warn("Could not import updateProgress function:", error);
+    }
+  }
   
   for (const prompt of prompts) {
-    const result = await runPromptTest(prompt.id, config);
-    results.push(result);
+    // Update progress to show which prompt we're processing
+    if (config.jobId && updateProgress) {
+      const currentProgress = Math.floor((completedPrompts / totalPrompts) * 100);
+      updateProgress(
+        config.jobId,
+        'analyzing',
+        currentProgress,
+        `Processing prompt ${completedPrompts + 1}/${totalPrompts}: ${prompt.name}`
+      );
+    }
+    
+    try {
+      const result = await runPromptTest(prompt.id, config);
+      results.push(result);
+      
+      // Increment completed prompts and update progress
+      completedPrompts++;
+      
+      if (config.jobId && updateProgress) {
+        const currentProgress = Math.floor((completedPrompts / totalPrompts) * 100);
+        updateProgress(
+          config.jobId,
+          completedPrompts === totalPrompts ? 'complete' : 'analyzing',
+          currentProgress,
+          completedPrompts === totalPrompts 
+            ? `Completed all ${totalPrompts} prompts` 
+            : `Completed ${completedPrompts}/${totalPrompts} prompts. Processing next...`
+        );
+      }
+    } catch (error) {
+      // If a single prompt fails, log the error but continue with others
+      console.error(`Error processing prompt ${prompt.id}:`, error);
+      
+      // Add failed result
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      results.push({
+        promptId: prompt.id,
+        promptName: prompt.name,
+        response: `Error: ${errorMessage}`,
+        videoUrl: config.videoUrl,
+        timestamp: new Date().toISOString(),
+        analysisType: config.analysisType,
+        executionTimeMs: 0
+      });
+      
+      // Still increment completed count to maintain progress
+      completedPrompts++;
+    }
   }
   
   return results;
