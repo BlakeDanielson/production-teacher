@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"; // Added useEffect
 import ReactMarkdown from "react-markdown";
 
 type AnalysisType = 'video' | 'audio';
+type TranscriptionQuality = 'low' | 'medium' | 'high';
+type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
 
 // Constants for warnings
 const VIDEO_LENGTH_WARNING_MINUTES = 10; // Warn for videos longer than 10 minutes
@@ -32,6 +34,22 @@ export default function Home() {
   // New state variables
   const [videoInfo, setVideoInfo] = useState<{ title?: string; duration?: number } | null>(null);
   const [showSizeWarning, setShowSizeWarning] = useState(false);
+
+  // New state variables for transcription feature
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionResult, setTranscriptionResult] = useState<string | null>(null);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [transcriptionQuality, setTranscriptionQuality] = useState<TranscriptionQuality>('medium');
+  const [transcriptionFormat, setTranscriptionFormat] = useState<TranscriptionFormat>('mp3');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // New state variables for transcription-based analysis
+  const [transcriptionToAnalyze, setTranscriptionToAnalyze] = useState<string | null>(null);
+  const [transcriptionResultError, setTranscriptionResultError] = useState<string | null>(null);
+  const [transcriptionResultContent, setTranscriptionResultContent] = useState<string | null>(null);
+  const [analysisModel, setAnalysisModel] = useState<'gemini' | 'gpt'>('gemini');
+  const [youtubeUrlForTranscript, setYoutubeUrlForTranscript] = useState<string | null>(null);
+  const [isAnalyzingTranscript, setIsAnalyzingTranscript] = useState(false);
 
   // Fetch reports on component mount
   useEffect(() => {
@@ -256,6 +274,124 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [youtubeUrl]);
 
+  // Handle file selection for transcription
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+      // Reset previous results/errors
+      setTranscriptionResult(null);
+      setTranscriptionError(null);
+    }
+  };
+
+  // Handle transcription request
+  const handleTranscribe = async () => {
+    if (!selectedFile) {
+      setTranscriptionError("Please select an audio or video file to transcribe.");
+      return;
+    }
+
+    setIsTranscribing(true);
+    setTranscriptionError(null);
+    setTranscriptionResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('audioFile', selectedFile);
+      formData.append('quality', transcriptionQuality);
+      formData.append('format', transcriptionFormat);
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `API request failed with status ${response.status}`);
+      }
+
+      setTranscriptionResult(data.text);
+
+    } catch (err) {
+      console.error("Error calling transcribe API:", err);
+      setTranscriptionError(err instanceof Error ? err.message : "An unknown error occurred during transcription.");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleAnalyzeTranscription = async () => {
+    if (!transcriptionToAnalyze || transcriptionToAnalyze.length < 50) {
+      setTranscriptionResultError("Please enter at least 50 characters for analysis.");
+      return;
+    }
+
+    setIsAnalyzingTranscript(true);
+    setTranscriptionResultError(null);
+    setTranscriptionResultContent(null);
+
+    try {
+      const response = await fetch('/api/analyze-transcription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          youtubeUrl: youtubeUrlForTranscript,
+          modelType: analysisModel,
+          transcriptionText: transcriptionToAnalyze,
+          saveReport: false // Don't auto-save, let user decide
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `API request failed with status ${response.status}`);
+      }
+
+      setTranscriptionResultContent(data.reportContent);
+
+    } catch (err) {
+      console.error("Error calling analyze-transcription API:", err);
+      setTranscriptionResultError(err instanceof Error ? err.message : "An unknown error occurred.");
+    } finally {
+      setIsAnalyzingTranscript(false);
+    }
+  };
+
+  const handleSaveTranscriptionAnalysis = async () => {
+    if (!transcriptionResultContent || !analysisTypeForSave || !youtubeUrl) {
+      setError("Cannot save analysis: Missing content, analysis type, or original URL.");
+      return;
+    }
+    try {
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          youtube_url: youtubeUrl,
+          analysis_type: analysisTypeForSave,
+          report_content: transcriptionResultContent,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save analysis');
+      }
+      // Analysis saved, maybe clear current analysis or give feedback
+      console.log("Analysis saved successfully!");
+      setTranscriptionResultContent(null);
+      setAnalysisTypeForSave(null);
+      await fetchReports(); // Refresh the list of saved analyses
+    } catch (err) {
+      console.error("Error saving analysis:", err);
+      setError(err instanceof Error ? err.message : "Could not save the analysis.");
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center p-8 md:p-16 lg:p-24 bg-gray-900 text-gray-100">
       <div className="w-full max-w-4xl">
@@ -408,6 +544,213 @@ export default function Home() {
            {!isSynthesizing && !synthesisError && !synthesisResult && (
              <p className="text-center text-gray-500">Select two or more saved reports and click Synthesize to see insights here.</p>
            )}
+        </div>
+
+        {/* Transcription Testing Section */}
+        <div className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-300">Transcription Testing</h2>
+          <p className="text-gray-400 mb-4">
+            Upload an audio or video file to test the transcription feature. Max file size: 25MB.
+          </p>
+          
+          <div className="mb-4">
+            <label htmlFor="fileUpload" className="block text-sm font-medium mb-2 text-gray-300">
+              Select Audio/Video File:
+            </label>
+            <input
+              type="file"
+              id="fileUpload"
+              onChange={handleFileChange}
+              accept="audio/*,video/*"
+              className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100"
+              disabled={isTranscribing}
+            />
+            {selectedFile && (
+              <p className="mt-1 text-sm text-gray-400">
+                Selected: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(2)}MB)
+              </p>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="quality" className="block text-sm font-medium mb-2 text-gray-300">
+                Audio Quality:
+              </label>
+              <select
+                id="quality"
+                value={transcriptionQuality}
+                onChange={(e) => setTranscriptionQuality(e.target.value as TranscriptionQuality)}
+                className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100"
+                disabled={isTranscribing}
+              >
+                <option value="low">Low (Smaller File)</option>
+                <option value="medium">Medium (Balanced)</option>
+                <option value="high">High (Better Quality)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="format" className="block text-sm font-medium mb-2 text-gray-300">
+                Audio Format:
+              </label>
+              <select
+                id="format"
+                value={transcriptionFormat}
+                onChange={(e) => setTranscriptionFormat(e.target.value as TranscriptionFormat)}
+                className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100"
+                disabled={isTranscribing}
+              >
+                <option value="mp3">MP3</option>
+                <option value="wav">WAV</option>
+                <option value="m4a">M4A</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleTranscribe}
+              disabled={isTranscribing || !selectedFile}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+            >
+              {isTranscribing ? "Transcribing..." : "Transcribe File"}
+            </button>
+          </div>
+          
+          {transcriptionError && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-md">
+              <p className="text-red-400 text-sm">{transcriptionError}</p>
+            </div>
+          )}
+          
+          {transcriptionResult && (
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2 text-gray-300">Transcription Result:</h3>
+              <div className="p-4 bg-gray-700 rounded-md max-h-60 overflow-y-auto">
+                <p className="text-gray-200 whitespace-pre-wrap">{transcriptionResult}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* After the transcription testing section */}
+        <div className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-300">Analyze Transcription</h2>
+          <p className="text-gray-400 mb-4">
+            Choose a completed transcription to analyze, or enter a transcript directly.
+          </p>
+          
+          {transcriptionResult && (
+            <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded-md">
+              <p className="text-blue-300 text-sm">
+                You have a successful transcription ready to analyze! 
+                <button
+                  onClick={() => {
+                    setTranscriptionToAnalyze(transcriptionResult);
+                    setTranscriptionResultError(null);
+                  }}
+                  className="ml-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded"
+                >
+                  Use This Transcription
+                </button>
+              </p>
+            </div>
+          )}
+          
+          <div className="mb-4">
+            <label htmlFor="transcriptionInput" className="block text-sm font-medium mb-2 text-gray-300">
+              Enter Transcription Text:
+            </label>
+            <textarea
+              id="transcriptionInput"
+              value={transcriptionToAnalyze || ''}
+              onChange={(e) => setTranscriptionToAnalyze(e.target.value)}
+              placeholder="Paste transcription text here or use the transcription feature above..."
+              className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 min-h-[100px]"
+              disabled={isAnalyzingTranscript}
+            />
+          </div>
+          
+          <div className="mb-4">
+            <label htmlFor="analysisModel" className="block text-sm font-medium mb-2 text-gray-300">
+              Analysis Model:
+            </label>
+            <div className="flex space-x-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="analysisModel"
+                  value="gemini"
+                  checked={analysisModel === 'gemini'}
+                  onChange={() => setAnalysisModel('gemini')}
+                  className="form-radio text-purple-600"
+                  disabled={isAnalyzingTranscript}
+                />
+                <span className="ml-2 text-gray-300">Gemini (Default)</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="analysisModel"
+                  value="gpt"
+                  checked={analysisModel === 'gpt'}
+                  onChange={() => setAnalysisModel('gpt')}
+                  className="form-radio text-green-600"
+                  disabled={isAnalyzingTranscript}
+                />
+                <span className="ml-2 text-gray-300">GPT-4</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label htmlFor="youtubeUrlForTranscript" className="block text-sm font-medium mb-2 text-gray-300">
+              YouTube URL (Optional):
+            </label>
+            <input
+              type="url"
+              id="youtubeUrlForTranscript"
+              value={youtubeUrlForTranscript || ''}
+              onChange={(e) => setYoutubeUrlForTranscript(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=... (helps with context)"
+              className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100"
+              disabled={isAnalyzingTranscript}
+            />
+          </div>
+          
+          <div className="mt-4 flex justify-center space-x-4">
+            <button
+              onClick={handleAnalyzeTranscription}
+              disabled={isAnalyzingTranscript || !transcriptionToAnalyze || transcriptionToAnalyze.length < 50}
+              className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+            >
+              {isAnalyzingTranscript ? "Analyzing..." : "Analyze Transcription"}
+            </button>
+            
+            <button
+              onClick={() => handleSaveTranscriptionAnalysis()}
+              disabled={!transcriptionResultContent}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+            >
+              Save Analysis
+            </button>
+          </div>
+          
+          {transcriptionResultError && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-md">
+              <p className="text-red-400 text-sm">{transcriptionResultError}</p>
+            </div>
+          )}
+          
+          {transcriptionResultContent && (
+            <div className="mt-6">
+              <h3 className="text-xl font-semibold mb-3 text-gray-300">Analysis Results</h3>
+              <div className="prose prose-invert max-w-none prose-headings:text-purple-400 prose-a:text-pink-500 hover:prose-a:text-pink-400">
+                <ReactMarkdown>{transcriptionResultContent}</ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
