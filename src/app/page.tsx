@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import { 
   TextInput, Button, Card, Alert, Loader, Text, Title, Group, Stack, 
   Container, SimpleGrid, Paper, Center, AspectRatio, Image, Badge, Divider,
-  ThemeIcon 
+  ThemeIcon, Space
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications'; // Corrected import path
 import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy, IconCheck, IconX } from '@tabler/icons-react';
@@ -188,15 +188,14 @@ export default function Home() {
       {/* Section Title */}
       <div>
         <Title order={2}>YouTube Video Analysis</Title>
-        <Text c="dimmed">
+        <Text c="dimmed" size="sm">
           Analyze YouTube videos for content insights and production quality feedback.
         </Text>
       </div>
-      <Divider />
 
       {/* Input Card */}
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="md">
+        <Stack gap="lg">
           <TextInput
             label="YouTube Video URL"
             placeholder="https://www.youtube.com/watch?v=..."
@@ -204,11 +203,11 @@ export default function Home() {
             onChange={(event) => setYoutubeUrl(event.currentTarget.value)}
             error={error === "Invalid YouTube URL" ? error : undefined}
             disabled={isLoading}
-            size="md"
+            size="sm"
           />
           
           {videoInfo && videoInfo.thumbnailUrl && (
-            <Paper p="xs" radius="sm" withBorder>
+            <Paper p="sm" radius="sm" withBorder>
               <Group wrap="nowrap">
                 <Image
                   src={videoInfo.thumbnailUrl}
@@ -240,19 +239,20 @@ export default function Home() {
               title="Length Warning" 
               icon={<IconAlertTriangle size={16} />}
               radius="sm"
+              fz="xs"
             >
               Video length might exceed limits for full analysis. Consider Audio Only.
             </Alert>
           )}
           
           {error && error !== "Invalid YouTube URL" && (
-            <Alert variant="light" color="red" title="Error" icon={<IconAlertTriangle size={16}/>} radius="sm">
+            <Alert variant="light" color="red" title="Error" icon={<IconAlertTriangle size={16}/>} radius="sm" fz="xs">
               {error}
             </Alert>
           )}
         </Stack>
 
-        <Group justify="center" mt="xl"> 
+        <Group justify="center" mt="lg">
           <Button
             leftSection={<IconPlayerPlay size={16}/>}
             onClick={() => handleAnalyze('video')}
@@ -270,7 +270,7 @@ export default function Home() {
             onClick={() => handleAnalyze('audio')}
             disabled={isLoading || !youtubeUrl}
             loading={isLoading && analysisTypeForSave === 'audio'}
-            variant="outline"
+            variant="light"
             color="pink"
             size="sm"
           >
@@ -281,14 +281,14 @@ export default function Home() {
 
       {/* Results Card */}
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
+        <Group justify="space-between" mb="lg">
           <Title order={4}>Analysis Report</Title>
           {reportContent && !isLoading && (
             <Button
-              leftSection={<IconDeviceFloppy size={16}/>}
+              leftSection={<IconDeviceFloppy size={14}/>}
               onClick={handleSaveReport}
               size="xs"
-              variant="light"
+              variant="outline"
               color="green"
             >
               Save Report
@@ -296,16 +296,24 @@ export default function Home() {
           )}
         </Group>
         
-        <Paper p="md" radius="sm" bg="dark.8" miw={200} mih={200}>
+        <Paper p="md" radius="sm" bg="dark.8" mih={200} withBorder>
           {isLoading && (
             <Center style={{ height: '200px' }}>
-              <Loader />
+              <Loader color="violet" />
               <Text ml="sm" c="dimmed">Analyzing...</Text>
             </Center>
           )}
           
           {reportContent && !error && (
-            <ReactMarkdown 
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <Title order={3} my="sm" {...props} />,
+                h2: ({node, ...props}) => <Title order={4} my="sm" {...props} />,
+                h3: ({node, ...props}) => <Title order={5} my="xs" {...props} />,
+                p: ({node, ...props}) => <Text size="sm" mb="xs" {...props} />,
+                a: ({node, ...props}) => <Text component="a" c="pink.4" td="underline" {...props} />,
+                li: ({node, ...props}) => <Text component="li" size="sm" {...props} />
+              }}
             >
               {reportContent}
             </ReactMarkdown>
@@ -313,10 +321,10 @@ export default function Home() {
           
           {!isLoading && !error && !reportContent && (
             <Center style={{ height: '200px', flexDirection: 'column' }}>
-              <ThemeIcon variant="light" size="xl" mb="md" color="gray">
-                <IconSearch size={24} />
+              <ThemeIcon variant="light" size={50} radius="xl" mb="md" color="gray">
+                <IconSearch size={28} />
               </ThemeIcon>
-              <Text c="dimmed">Enter a URL and click Analyze to see the report here.</Text>
+              <Text c="dimmed" size="sm">Enter a URL and click Analyze to see the report here.</Text>
             </Center>
           )}
         </Paper>

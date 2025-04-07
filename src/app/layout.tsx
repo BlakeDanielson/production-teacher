@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import "@mantine/core/styles.css"; // Import Mantine core styles
 import "@mantine/notifications/styles.css"; // Import notification styles
 import "./globals.css"; 
-import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink } from '@mantine/core';
+import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink, Box, Text as MantineText } from '@mantine/core';
 import { Notifications } from '@mantine/notifications'; // Import Notifications provider
 import { useDisclosure } from '@mantine/hooks';
 import Link from 'next/link';
@@ -54,18 +54,21 @@ export default function RootLayout({
             navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened, desktop: false } }}
             padding="md"
           >
-            <AppShell.Header>
+            <AppShell.Header 
+              style={{ borderBottom: '1px solid var(--mantine-color-dark-5)' }}
+            >
               <Group h="100%" px="md">
                 {/* Burger menu for mobile */}
                 <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                {/* Header content - e.g., Logo or Title */}
-                <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 'bold', fontSize: '1.25rem' }}>
+                {/* Changed h1 to Box with MantineText for better theme integration */}
+                <Box style={{ fontFamily: 'var(--font-sans)', fontWeight: 'bold', fontSize: '1.25rem' }}>
                   Production Teacher
-                </h1>
+                </Box>
               </Group>
             </AppShell.Header>
 
             <AppShell.Navbar p="md">
+              {/* Maybe add a small title/logo here if desired */}
               {navItems.map((item) => (
                 <NavLink
                   key={item.label}
@@ -76,6 +79,11 @@ export default function RootLayout({
                   onClick={toggle} // Close navbar on mobile click
                   active={pathname === item.href} // Set active state based on path
                   variant="subtle" // Use subtle variant for better look
+                  styles={{
+                    root: {
+                      borderRadius: 'var(--mantine-radius-sm)',
+                    },
+                  }}
                 />
               ))}
             </AppShell.Navbar>
