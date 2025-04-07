@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"; // Added useEffect
 import ReactMarkdown from "react-markdown";
+import FileUpload from "@/components/FileUpload";
+import JobStatusDisplay from "@/components/JobStatusDisplay";
+import YoutubeInput from "@/components/YoutubeInput";
 
 type AnalysisType = 'video' | 'audio';
 type TranscriptionQuality = 'low' | 'medium' | 'high';
@@ -32,7 +35,12 @@ export default function Home() {
   const [synthesisError, setSynthesisError] = useState<string | null>(null); // Error state for synthesis
   
   // New state variables
-  const [videoInfo, setVideoInfo] = useState<{ title?: string; duration?: number } | null>(null);
+  const [videoInfo, setVideoInfo] = useState<{ 
+    id?: string;
+    title?: string; 
+    duration?: number;
+    thumbnailUrl?: string;
+  } | null>(null);
   const [showSizeWarning, setShowSizeWarning] = useState(false);
 
   // New state variables for transcription feature
@@ -50,6 +58,9 @@ export default function Home() {
   const [analysisModel, setAnalysisModel] = useState<'gemini' | 'gpt'>('gemini');
   const [youtubeUrlForTranscript, setYoutubeUrlForTranscript] = useState<string | null>(null);
   const [isAnalyzingTranscript, setIsAnalyzingTranscript] = useState(false);
+
+  // New state variables for job handling
+  const [transcriptionJobId, setTranscriptionJobId] = useState<string | null>(null);
 
   // Fetch reports on component mount
   useEffect(() => {
@@ -117,50 +128,19 @@ export default function Home() {
     });
   };
 
-  // Add a new function to validate YouTube URL and fetch basic video info
-  const validateYoutubeUrl = async (url: string) => {
-    // Reset states
-    setVideoInfo(null);
-    setShowSizeWarning(false);
-    setError(null);
-    
-    if (!url) return;
-    
-    // Basic URL validation
-    if (!url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/)) {
-      setError("Please enter a valid YouTube URL");
-      return;
-    }
-    
-    try {
-      // Simple regex to extract video ID (this is a basic version, might need enhancement)
-      const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-      
-      if (!videoIdMatch || !videoIdMatch[1]) {
-        setError("Could not extract valid YouTube video ID.");
-        return;
-      }
-      
-      // Fetch basic info using Fetch API - this is just an example
-      // In a complete implementation, you might use YouTube API or a backend service
-      // For now, we'll simulate getting duration with a random value for demonstration
-      // In production, you'd properly get this data
-      
-      const mockInfo = {
-        title: "Video Title", // In production, get the real title
-        duration: Math.floor(Math.random() * 60) + 5 // Random duration between 5-65 minutes
-      };
-      
-      setVideoInfo(mockInfo);
-      
-      // Show warning if video is potentially too long
-      if (mockInfo.duration > VIDEO_LENGTH_WARNING_MINUTES) {
-        setShowSizeWarning(true);
-      }
-      
-    } catch (err) {
-      console.error("Error validating video:", err);
-      // Don't set error here, just log it
+  // Handle YouTube URL validation callback
+  const handleYoutubeValidation = (isValid: boolean, info?: { id: string; title?: string; thumbnailUrl?: string }) => {
+    if (isValid && info) {
+      // If we have a valid URL with video info, update our state
+      setVideoInfo(prev => ({
+        ...prev,
+        id: info.id,
+        title: info.title,
+        thumbnailUrl: info.thumbnailUrl,
+        // We're keeping any duration info we might have from elsewhere
+      }));
+      setShowSizeWarning(false);
+      setError(null);
     }
   };
 
@@ -267,24 +247,14 @@ export default function Home() {
     // Only validate the URL, don't fetch reports here
     const timer = setTimeout(() => {
       if (youtubeUrl) {
-        validateYoutubeUrl(youtubeUrl);
+        handleYoutubeValidation(true, { id: '', title: '', thumbnailUrl: '' });
       }
     }, 500); // 500ms debounce
     
     return () => clearTimeout(timer);
   }, [youtubeUrl]);
 
-  // Handle file selection for transcription
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      // Reset previous results/errors
-      setTranscriptionResult(null);
-      setTranscriptionError(null);
-    }
-  };
-
-  // Handle transcription request
+  // Handle transcription request - updated to use job system
   const handleTranscribe = async () => {
     if (!selectedFile) {
       setTranscriptionError("Please select an audio or video file to transcribe.");
@@ -294,6 +264,7 @@ export default function Home() {
     setIsTranscribing(true);
     setTranscriptionError(null);
     setTranscriptionResult(null);
+    setTranscriptionJobId(null);
 
     try {
       const formData = new FormData();
@@ -312,14 +283,35 @@ export default function Home() {
         throw new Error(data.error || `API request failed with status ${response.status}`);
       }
 
-      setTranscriptionResult(data.text);
+      // Set the job ID for tracking
+      if (data.job_id) {
+        setTranscriptionJobId(data.job_id);
+      }
+
+      // If we already have results, use them
+      if (data.text) {
+        setTranscriptionResult(data.text);
+      }
 
     } catch (err) {
       console.error("Error calling transcribe API:", err);
       setTranscriptionError(err instanceof Error ? err.message : "An unknown error occurred during transcription.");
-    } finally {
       setIsTranscribing(false);
     }
+  };
+
+  // Handle job completion
+  const handleTranscriptionComplete = (result: any) => {
+    setIsTranscribing(false);
+    if (result && result.content) {
+      setTranscriptionResult(result.content);
+    }
+  };
+
+  // Handle job error
+  const handleTranscriptionError = (error: string) => {
+    setIsTranscribing(false);
+    setTranscriptionError(error);
   };
 
   const handleAnalyzeTranscription = async () => {
@@ -399,29 +391,22 @@ export default function Home() {
           Production Teacher
         </h1>
 
-        {/* Input Section */}
+        {/* Updated Input Section with YoutubeInput */}
         <div className="mb-6 p-6 bg-gray-800 rounded-lg shadow-lg">
-          <label htmlFor="youtubeUrl" className="block text-lg font-medium mb-2 text-gray-300">
-            YouTube Video URL:
-          </label>
-          <input
-            type="url"
-            id="youtubeUrl"
+          <YoutubeInput 
             value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full px-4 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            onChange={setYoutubeUrl}
+            onValidated={handleYoutubeValidation}
             disabled={isLoading}
+            label="YouTube Video URL"
           />
           
-          {/* Video Info Display */}
-          {videoInfo && (
+          {/* Video Info Display - simplified since YoutubeInput shows preview */}
+          {videoInfo?.duration && (
             <div className="mt-2 text-sm">
-              {videoInfo.duration && (
-                <p className="text-gray-400">
-                  Estimated Duration: <span className={videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES ? "text-amber-400 font-medium" : "text-gray-300"}>{videoInfo.duration} minutes</span>
-                </p>
-              )}
+              <p className={`text-gray-400 ${videoInfo.duration > VIDEO_LENGTH_WARNING_MINUTES ? "text-amber-400 font-medium" : ""}`}>
+                Estimated Duration: {videoInfo.duration} minutes
+              </p>
             </div>
           )}
           
@@ -439,14 +424,14 @@ export default function Home() {
             <button
               onClick={() => handleAnalyze('video')}
               disabled={isLoading || !youtubeUrl}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition-colors"
             >
               {isLoading ? "Analyzing..." : "Analyze Full Video"}
             </button>
             <button
               onClick={() => handleAnalyze('audio')}
               disabled={isLoading || !youtubeUrl}
-              className="px-6 py-2 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+              className="px-6 py-2 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition-colors"
             >
               {isLoading ? "Analyzing..." : "Analyze Audio Only"}
             </button>
@@ -547,29 +532,19 @@ export default function Home() {
         </div>
 
         {/* Transcription Testing Section */}
-        <div className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-300">Transcription Testing</h2>
+        <div className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg w-full max-w-4xl">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-300">Transcription</h2>
           <p className="text-gray-400 mb-4">
-            Upload an audio or video file to test the transcription feature. Max file size: 25MB.
+            Upload an audio or video file to transcribe it. Maximum file size: 25MB.
           </p>
           
           <div className="mb-4">
-            <label htmlFor="fileUpload" className="block text-sm font-medium mb-2 text-gray-300">
-              Select Audio/Video File:
-            </label>
-            <input
-              type="file"
-              id="fileUpload"
-              onChange={handleFileChange}
-              accept="audio/*,video/*"
-              className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100"
+            <FileUpload 
+              onFileSelect={(file) => setSelectedFile(file)}
+              maxSizeMB={25}
               disabled={isTranscribing}
+              label="Drag and drop an audio or video file here, or click to select"
             />
-            {selectedFile && (
-              <p className="mt-1 text-sm text-gray-400">
-                Selected: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(2)}MB)
-              </p>
-            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -612,30 +587,56 @@ export default function Home() {
             <button
               onClick={handleTranscribe}
               disabled={isTranscribing || !selectedFile}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition duration-200 ease-in-out"
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white font-semibold rounded-md shadow transition-colors"
             >
-              {isTranscribing ? "Transcribing..." : "Transcribe File"}
+              {isTranscribing ? "Processing..." : "Transcribe File"}
             </button>
           </div>
           
-          {transcriptionError && (
+          {/* Show job status if we have a job ID */}
+          {transcriptionJobId && (
+            <JobStatusDisplay
+              jobId={transcriptionJobId}
+              onComplete={handleTranscriptionComplete}
+              onError={handleTranscriptionError}
+            />
+          )}
+          
+          {transcriptionError && !transcriptionJobId && (
             <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-md">
               <p className="text-red-400 text-sm">{transcriptionError}</p>
             </div>
           )}
           
           {transcriptionResult && (
-            <div className="mt-4">
+            <div className="mt-6">
               <h3 className="text-lg font-semibold mb-2 text-gray-300">Transcription Result:</h3>
               <div className="p-4 bg-gray-700 rounded-md max-h-60 overflow-y-auto">
                 <p className="text-gray-200 whitespace-pre-wrap">{transcriptionResult}</p>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button 
+                  onClick={() => {
+                    setTranscriptionToAnalyze(transcriptionResult);
+                    setTranscriptionResultError(null);
+                    
+                    // Auto-scroll to analysis section
+                    document.getElementById('analyze-transcription-section')?.scrollIntoView({ 
+                      behavior: 'smooth',
+                      block: 'start'
+                    });
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded transition-colors"
+                >
+                  Use for Analysis
+                </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* After the transcription testing section */}
-        <div className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg">
+        {/* After the transcription testing section - Update the ID for scrolling */}
+        <div id="analyze-transcription-section" className="mt-10 p-6 bg-gray-800 rounded-lg shadow-lg w-full max-w-4xl">
           <h2 className="text-2xl font-semibold mb-4 text-gray-300">Analyze Transcription</h2>
           <p className="text-gray-400 mb-4">
             Choose a completed transcription to analyze, or enter a transcript directly.
@@ -757,3 +758,5 @@ export default function Home() {
     </main>
   );
 }
+
+
