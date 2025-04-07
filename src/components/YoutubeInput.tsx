@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { extractYoutubeVideoId } from '@/lib/youtubeApi';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 interface YoutubeInputProps {
   value: string;
@@ -98,67 +102,66 @@ const YoutubeInput: React.FC<YoutubeInputProps> = ({
   }, [videoId]);
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-3">
       {label && (
-        <label htmlFor="youtube-url" className="block text-sm font-medium mb-2 text-gray-300">
+        <label htmlFor="youtube-url" className="text-sm font-medium text-gray-300">
           {label}
         </label>
       )}
       
       <div className="relative">
-        <input
-          type="url"
+        <Input
           id="youtube-url"
+          type="url"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full px-4 py-2 pr-10 border ${
-            isValidUrl ? 'border-green-600' : errorMessage ? 'border-red-600' : 'border-gray-600'
-          } rounded-md bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 ${
-            isValidUrl ? 'focus:ring-green-500' : 'focus:ring-purple-500'
+          className={`w-full ${
+            isValidUrl ? 'border-green-600 focus-visible:ring-green-600' : 
+            errorMessage ? 'border-red-500 focus-visible:ring-red-500' : ''
           }`}
         />
         
         {/* Status icon */}
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
           {isLoadingInfo ? (
-            <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+            <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
           ) : isValidUrl ? (
-            <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
+            <CheckCircle className="h-4 w-4 text-green-500" />
           ) : value ? (
-            <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
+            <AlertCircle className="h-4 w-4 text-red-500" />
           ) : null}
         </div>
       </div>
       
       {errorMessage && (
-        <p className="mt-1 text-sm text-red-500">{errorMessage}</p>
+        <p className="text-sm text-red-500">{errorMessage}</p>
       )}
       
       {/* Video preview */}
       {isValidUrl && videoInfo && videoInfo.thumbnailUrl && (
-        <div className="mt-3 flex items-center p-2 bg-gray-800 rounded-md">
-          <div className="relative w-20 h-12 overflow-hidden rounded">
-            <img 
-              src={videoInfo.thumbnailUrl}
-              alt="Video thumbnail"
-              className="object-cover w-full h-full"
-            />
-          </div>
-          <div className="ml-3 flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-300 truncate">
-              {videoInfo.title || 'YouTube Video'}
-            </p>
-            <p className="text-xs text-gray-500">
-              ID: {videoId}
-            </p>
-          </div>
-        </div>
+        <Card className="overflow-hidden bg-card/60 border-border/30 smooth-transition">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="relative w-24 h-14 overflow-hidden rounded">
+              <img 
+                src={videoInfo.thumbnailUrl}
+                alt="Video thumbnail"
+                className="object-cover w-full h-full"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-card-foreground truncate">
+                {videoInfo.title || 'YouTube Video'}
+              </p>
+              <div className="mt-1">
+                <Badge variant="secondary" className="text-xs bg-secondary/40">
+                  ID: {videoId?.substring(0, 6)}...
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

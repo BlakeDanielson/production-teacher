@@ -1,4 +1,6 @@
 import React from 'react';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 interface ProgressBarProps {
   progress: number;
@@ -13,25 +15,29 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   isComplete = false,
   isError = false
 }) => {
-  // Calculate the width of the progress bar
-  const width = `${Math.min(progress, 100)}%`;
+  // Ensure progress is within bounds
+  const normalizedProgress = Math.min(Math.max(0, progress), 100);
   
-  // Determine the color based on state
-  let colorClass = 'bg-blue-500';
-  if (isComplete) colorClass = 'bg-green-500';
-  if (isError) colorClass = 'bg-red-500';
+  // Determine style based on state
+  const progressClass = isComplete 
+    ? 'bg-green-500' 
+    : isError 
+      ? 'bg-red-500' 
+      : '';
   
   return (
-    <div className="w-full mb-4">
-      <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-gray-300">{status}</span>
-        <span className="text-sm font-medium text-gray-300">{Math.round(progress)}%</span>
+    <div className="w-full space-y-2">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-muted-foreground">{status}</span>
+        <span className="text-sm font-medium text-foreground">{Math.round(normalizedProgress)}%</span>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-2.5">
+      
+      {/* Custom progress bar since we need to change the color dynamically */}
+      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
         <div 
-          className={`h-2.5 rounded-full transition-all duration-300 ${colorClass}`} 
-          style={{ width }}
-        ></div>
+          className={cn("h-full transition-all duration-300", progressClass || "bg-primary")}
+          style={{ width: `${normalizedProgress}%` }}
+        />
       </div>
     </div>
   );

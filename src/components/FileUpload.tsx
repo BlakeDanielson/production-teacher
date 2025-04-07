@@ -1,4 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { Card } from '@/components/ui/card';
+import { UploadCloud, Check, AlertCircle, FileIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -97,12 +100,22 @@ const FileUpload: React.FC<FileUploadProps> = ({
     }
   };
 
+  const formatFileSize = (sizeBytes: number): string => {
+    if (sizeBytes < 1024) {
+      return `${sizeBytes} B`;
+    } else if (sizeBytes < 1024 * 1024) {
+      return `${(sizeBytes / 1024).toFixed(1)} KB`;
+    } else {
+      return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+  };
+
   return (
-    <div className="w-full">
-      <div
-        className={`border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors ${
-          isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    <div className="w-full space-y-3">
+      <Card
+        className={`relative border-2 border-dashed rounded-lg p-6 cursor-pointer transition-all duration-300 group ${
+          isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50 border-border'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-sm'}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -116,26 +129,35 @@ const FileUpload: React.FC<FileUploadProps> = ({
           className="hidden"
           disabled={disabled}
         />
-        <div className="flex flex-col items-center justify-center">
-          <svg className="w-8 h-8 mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-          </svg>
-          
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
           {selectedFileName ? (
-            <div className="text-center">
-              <p className="text-sm text-gray-400">Selected file:</p>
-              <p className="text-sm font-medium text-gray-300">{selectedFileName}</p>
-            </div>
+            <>
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <Check className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">File selected</p>
+                <p className="text-xs text-muted-foreground mt-1 truncate max-w-[250px]">{selectedFileName}</p>
+              </div>
+            </>
           ) : (
-            <p className="text-sm text-gray-400">{label}</p>
+            <>
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-colors">
+                <UploadCloud className="h-6 w-6" />
+              </div>
+              <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{label}</p>
+            </>
           )}
           
-          <p className="text-xs text-gray-500 mt-1">Maximum file size: {maxSizeMB}MB</p>
+          <p className="text-xs text-muted-foreground mt-1">Maximum file size: {maxSizeMB}MB</p>
         </div>
-      </div>
+      </Card>
       
       {error && (
-        <div className="mt-2 text-sm text-red-500">{error}</div>
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm ml-2">{error}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

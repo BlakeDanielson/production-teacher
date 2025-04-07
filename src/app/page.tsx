@@ -6,6 +6,18 @@ import FileUpload from "@/components/FileUpload";
 import JobStatusDisplay from "@/components/JobStatusDisplay";
 import YoutubeInput from "@/components/YoutubeInput";
 
+// Shadcn UI Components
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Icons
+import { Play, Music, FileCheck, Loader2, Check, AlertTriangle, TextSearch, Youtube, BarChart } from "lucide-react";
+
 type AnalysisType = 'video' | 'audio';
 type TranscriptionQuality = 'low' | 'medium' | 'high';
 type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
