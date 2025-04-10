@@ -1,6 +1,6 @@
 "use client"; // Required for useState and event handlers
 
-import { useState, useEffect } from "react"; // Added useEffect
+import { useState, useEffect, useCallback } from "react"; // Added useCallback here
 import ReactMarkdown from "react-markdown";
 import { keyframes } from '@emotion/react';
 
@@ -67,7 +67,8 @@ export default function Home() {
   // Fetch reports on component mount - REMOVED (will be on reports page)
   // useEffect(() => { fetchReports(); }, []);
 
-  const handleYoutubeValidation = (isValid: boolean, info?: { id: string; title?: string; thumbnailUrl?: string; duration?: number }) => {
+  // Wrap handleYoutubeValidation in useCallback to stabilize it
+  const handleYoutubeValidation = useCallback((isValid: boolean, info?: { id: string; title?: string; thumbnailUrl?: string; duration?: number }) => {
     if (isValid && info) {
       setVideoInfo({
         id: info.id,
@@ -88,7 +89,7 @@ export default function Home() {
       if (!isValid && youtubeUrl) setError("Invalid YouTube URL"); 
       else setError(null);
     }
-  };
+  }, [youtubeUrl]); // Add youtubeUrl as dependency (setters are stable)
 
   // Update the cancel function to use the tracker
   const handleCancelAnalysis = () => {
