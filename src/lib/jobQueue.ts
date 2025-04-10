@@ -20,7 +20,7 @@ export interface Job {
   error?: string | null;
   created_at: string;
   updated_at: string | null;
-  metadata?: Record<string, any> | null; // Match jsonb type
+  metadata?: Record<string, unknown> | null; // Use unknown instead of any
   youtube_url?: string | null;
   analysis_type?: string | null; // Match text type
   user_id?: string | null; // Match uuid type
@@ -33,9 +33,10 @@ export interface Job {
  * @param metadata Additional metadata to store with the job
  * @returns The created job record
  */
-// Change metadata type to be more flexible
-export async function createJob(type: JobType, metadata: Record<string, any> = {}): Promise<Job> {
+// Use unknown for metadata type
+export async function createJob(type: JobType, metadata: Record<string, unknown> = {}): Promise<Job> {
   // Extract specific fields expected in the table from the metadata object
+  // We might need type assertions here if accessing specific properties later
   const { youtubeUrl, analysisType, userId, ...otherMetadata } = metadata;
 
   const { data, error } = await supabase
