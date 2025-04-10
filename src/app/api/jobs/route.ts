@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { 
-  getJob, 
-  listJobs, 
-  updateJobStatus, 
-  deleteJob 
+import {
+  getJob,
+  listJobs,
+  updateJobStatus,
+  deleteJob,
+  JobType, // Import JobType
+  JobStatus // Import JobStatus
 } from '@/lib/jobQueue';
 
 /**
@@ -22,15 +24,29 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.json(job);
     }
-    
+
     // Otherwise, list jobs with optional filters
-    const type = searchParams.get('type') as any;
-    const status = searchParams.get('status') as any;
+    const typeParam = searchParams.get('type');
+    const statusParam = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '10', 10);
-    
-    const jobs = await listJobs(type, status, limit);
+
+    // Validate typeParam
+    let validatedType: JobType | undefined = undefined;
+    const allowedTypes: JobType[] = ['transcription', 'analysis', 'download'];
+    if (typeParam && allowedTypes.includes(typeParam as JobType)) {
+      validatedType = typeParam as JobType;
+    }
+
+    // Validate statusParam
+    let validatedStatus: JobStatus | undefined = undefined;
+    const allowedStatuses: JobStatus[] = ['pending', 'processing', 'completed', 'failed'];
+    if (statusParam && allowedStatuses.includes(statusParam as JobStatus)) {
+      validatedStatus = statusParam as JobStatus;
+    }
+
+    const jobs = await listJobs(validatedType, validatedStatus, limit);
     return NextResponse.json(jobs);
-    
+
   } catch (error: unknown) {
     console.error("Error in /api/jobs GET:", error);
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
@@ -87,4 +103,4 @@ export async function DELETE(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
-} 
+}

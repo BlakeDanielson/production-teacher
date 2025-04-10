@@ -5,16 +5,16 @@ import ReactMarkdown from "react-markdown";
 import { keyframes } from '@emotion/react';
 
 // Mantine components
-import { 
-  TextInput, Button, Card, Alert, Loader, Text, Title, Group, Stack, 
-  Container, SimpleGrid, Paper, Center, AspectRatio, Image, Badge, Divider,
-  ThemeIcon, Space, Progress, Timeline, RingProgress, Tooltip
+import {
+  Button, Card, Alert, Text, Title, Group, Stack, // Removed TextInput, Loader
+  Paper, Center, Image, Badge, // Removed Container, SimpleGrid, AspectRatio, Divider
+  ThemeIcon, Progress, Timeline, RingProgress, Tooltip // Removed Space
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications'; // Corrected import path
-import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconFileCheck, IconSearch, IconDeviceFloppy, IconCheck, IconX, IconDownload, IconPlayerRecord, IconCloudComputing, IconFileAnalytics, IconCheck as IconCheckmark, IconClock, IconPlayerStop, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertTriangle, IconPlayerPlay, IconMusic, IconSearch, IconDeviceFloppy, IconCheck, IconX, IconDownload, IconPlayerRecord, IconCloudComputing, IconFileAnalytics, IconCheck as IconCheckmark, IconClock, IconPlayerStop } from '@tabler/icons-react'; // Removed IconFileCheck, IconInfoCircle
 
 // Import shared types
-import { AnalysisType, ReportMetadata } from '@/types'; 
+import { AnalysisType } from '@/types'; // Removed ReportMetadata
 import { useAppStore } from '@/store/store'; // Import the store
 import { generateAnalysisId, initializeProgressTracking, cancelAnalysis, useProgressTracker } from '@/lib/progressTracker';
 import { YoutubeInput } from './components/YoutubeInput';
@@ -23,10 +23,7 @@ import { YoutubeInput } from './components/YoutubeInput';
 const VIDEO_LENGTH_WARNING_MINUTES = 15; // Example: warn if video is longer than 15 minutes
 const AUDIO_LENGTH_WARNING_MINUTES = 30; // Warn for audio longer than 30 minutes
 
-// Re-define types locally for now
-type TranscriptionQuality = 'low' | 'medium' | 'high';
-type TranscriptionFormat = 'mp3' | 'wav' | 'm4a';
-type AnalysisModel = 'gemini' | 'gpt4';
+// Removed unused local types: TranscriptionQuality, TranscriptionFormat, AnalysisModel
 
 // Define animations
 const pulseOpacity = keyframes`
@@ -65,7 +62,7 @@ export default function Home() {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Get API keys from store
-  const { googleApiKey, openaiApiKey } = useAppStore();
+  const { googleApiKey } = useAppStore(); // Removed unused openaiApiKey
 
   // Fetch reports on component mount - REMOVED (will be on reports page)
   // useEffect(() => { fetchReports(); }, []);
@@ -114,13 +111,7 @@ export default function Home() {
     }
   };
 
-  // Add function to calculate estimated time remaining
-  const calculateEstimatedTimeRemaining = (progress: number, startTime: Date) => {
-    const elapsedMs = new Date().getTime() - startTime.getTime();
-    const estimatedTotalMs = (elapsedMs / progress) * 100;
-    const remainingMs = estimatedTotalMs - elapsedMs;
-    return Math.max(0, Math.round(remainingMs / 1000));
-  };
+  // Removed unused function calculateEstimatedTimeRemaining
 
   // Format time remaining in a readable format
   const formatTimeRemaining = (seconds: number): string => {
@@ -460,7 +451,7 @@ export default function Home() {
         </Group>
         
         <Paper p="md" radius="sm" bg="dark.8" mih={200} withBorder>
-          {isLoading && analysisStatus && (
+          {isLoading && analysisStatus && ( // analysisStatus comes from useProgressTracker hook
             <Stack gap="md" py="md" justify="center" mih={200}>
               <Group justify="center" gap="xl">
                 <RingProgress
@@ -613,12 +604,12 @@ export default function Home() {
           {reportContent && !error && (
             <ReactMarkdown
               components={{
-                h1: ({node, ...props}) => <Title order={3} my="sm" {...props} />,
-                h2: ({node, ...props}) => <Title order={4} my="sm" {...props} />,
-                h3: ({node, ...props}) => <Title order={5} my="xs" {...props} />,
-                p: ({node, ...props}) => <Text size="sm" mb="xs" {...props} />,
-                a: ({node, ...props}) => <Text component="a" c="pink.4" td="underline" {...props} />,
-                li: ({node, ...props}) => <Text component="li" size="sm" {...props} />
+                h1: ({ ...props }) => <Title order={3} my="sm" {...props} />, // Removed unused _node prop
+                h2: ({ ...props }) => <Title order={4} my="sm" {...props} />, // Removed unused _node prop
+                h3: ({ ...props }) => <Title order={5} my="xs" {...props} />, // Removed unused _node prop
+                p: ({ ...props }) => <Text size="sm" mb="xs" {...props} />, // Removed unused _node prop
+                a: ({ ...props }) => <Text component="a" c="pink.4" td="underline" {...props} />, // Removed unused _node prop
+                li: ({ ...props }) => <Text component="li" size="sm" {...props} /> // Removed unused _node prop
               }}
             >
               {reportContent}
@@ -734,5 +725,3 @@ function AnalysisHistoryList() {
     </Stack>
   );
 }
-
-

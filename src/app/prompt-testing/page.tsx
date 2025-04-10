@@ -1,20 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Title, Text, Stack, Button, Group, Tabs, Card, Checkbox, 
-  TextInput, Textarea, Select, Alert, Badge, Code, 
-  Accordion, Paper, Divider, ActionIcon, Tooltip, ScrollArea, Progress
+import {
+  Title, Text, Stack, Button, Group, Tabs, Card, Checkbox,
+  TextInput, Textarea, Select, Alert, Badge, Code,
+  Accordion, Paper, Divider, Tooltip, ScrollArea, Progress // Removed unused ActionIcon
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconPlaylistX, IconBrandYoutube, IconInfoCircle, IconFlask, IconTrash, IconPlus, IconCheck, IconX, IconBrandOpenai, IconRocket, IconCode, IconNote, IconPlayerStop } from '@tabler/icons-react';
+import { IconPlaylistX, IconBrandYoutube, IconInfoCircle, IconFlask, IconTrash, IconPlus, IconCheck, IconRocket, IconNote, IconPlayerStop } from '@tabler/icons-react'; // Removed unused IconX, IconBrandOpenai, IconCode
 import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '@/store/store';
 import { AnalysisType } from '@/types';
-import { 
-  getAvailablePrompts, 
-  runPromptTest, 
-  runPromptBatchTest, 
+import {
+  getAvailablePrompts,
+  // Removed unused runPromptTest
+  runPromptBatchTest,
   addCustomPrompt,
   saveTestResults,
   loadTestResults,
@@ -59,16 +59,9 @@ export default function PromptTestingPage() {
     const results = loadTestResults();
     setSavedResults(results);
   }, []);
-  
-  // Handle YouTube URL validation
-  const handleYoutubeValidation = (isValid: boolean, info?: any) => {
-    if (isValid && info) {
-      setVideoInfo(info);
-    } else {
-      setVideoInfo(null);
-    }
-  };
-  
+
+  // Removed original handleYoutubeValidation function definition (duplicated below)
+
   // Handle prompt selection toggle
   const handlePromptToggle = (promptId: string, isChecked: boolean) => {
     if (isChecked) {
@@ -254,6 +247,23 @@ export default function PromptTestingPage() {
     groups[key].push(result);
     return groups;
   }, {} as Record<string, TestResult[]>);
+
+  // Define type for YouTube info used in validation callback
+  type ValidationInfo = {
+    id: string;
+    title?: string;
+    thumbnailUrl?: string; // Added thumbnailUrl based on YoutubeInput component
+    duration?: number;
+  };
+
+  // Handle YouTube URL validation
+  const handleYoutubeValidation = (isValid: boolean, info?: ValidationInfo) => { // Changed any to ValidationInfo
+    if (isValid && info) {
+      setVideoInfo(info);
+    } else {
+      setVideoInfo(null);
+    }
+  };
 
   return (
     <Stack gap="xl">
@@ -591,4 +601,4 @@ export default function PromptTestingPage() {
       </Tabs>
     </Stack>
   );
-} 
+}

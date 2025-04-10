@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { TextInput, Text, Group, Badge, Image, Paper } from '@mantine/core';
+import { useEffect, useCallback } from 'react'; // Removed unused useState
+import { TextInput } from '@mantine/core'; // Removed unused Text, Group, Badge, Image, Paper
 import { extractYoutubeVideoId, getThumbnailUrl } from '@/lib/youtubeApi';
 
 interface YouTubeInfo {
@@ -14,7 +14,7 @@ interface YouTubeInputProps {
   onChange: (value: string) => void;
   onValidation: (isValid: boolean, info?: YouTubeInfo) => void;
   isDisabled?: boolean;
-  error?: string;
+  error?: string; // Prop 'error' is used by TextInput
 }
 
 export function YoutubeInput({
@@ -22,26 +22,26 @@ export function YoutubeInput({
   onChange,
   onValidation,
   isDisabled = false,
-  error
+  error // Prop 'error' is used by TextInput
 }: YouTubeInputProps) {
-  const [isValidating, setIsValidating] = useState(false);
-  
-  // Function to validate and fetch video info
-  const validateYoutubeUrl = async (url: string) => {
+  // Removed unused isValidating state
+
+  // Function to validate and fetch video info (wrapped in useCallback)
+  const validateYoutubeUrl = useCallback(async (url: string) => {
     if (!url) {
-      onValidation(false);
+      onValidation(false); // onValidation is a dependency of useCallback
       return;
     }
-    
-    setIsValidating(true);
-    
+
+    // Removed setIsValidating(true)
+
     try {
       // Extract video ID
       const videoId = extractYoutubeVideoId(url);
       
       if (!videoId) {
         onValidation(false);
-        setIsValidating(false);
+        // Removed setIsValidating(false)
         return;
       }
       
@@ -67,22 +67,22 @@ export function YoutubeInput({
         };
         
         onValidation(true, info);
-      } catch (error) {
+      } catch { // Removed unused _error variable
         // If oembed fails, still return basic info
         const info: YouTubeInfo = {
           id: videoId,
           thumbnailUrl: thumbnailUrl,
           duration: estimateDurationFromUrl(url)
         };
-        
+
         onValidation(true, info);
       }
-    } catch (error) {
+      // Removed duplicate catch (_fetchError) block
+    } catch { // Removed unused _extractError variable
       onValidation(false);
-    } finally {
-      setIsValidating(false);
     }
-  };
+    // Removed finally block with setIsValidating(false)
+  }, [onValidation]); // Added dependency for useCallback
   
   // Try to extract duration from URL "t" parameter - just a fallback approach
   // In real implementation, use the YouTube API
@@ -137,10 +137,10 @@ export function YoutubeInput({
         onValidation(false);
       }
     }, 500);
-    
+
     return () => clearTimeout(timer);
-  }, [value]);
-  
+  }, [value, validateYoutubeUrl, onValidation]); // Added onValidation to satisfy exhaustive-deps
+
   return (
     <TextInput
       label="YouTube Video URL"
@@ -153,4 +153,4 @@ export function YoutubeInput({
       data-autofocus
     />
   );
-} 
+}

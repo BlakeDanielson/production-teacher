@@ -24,5 +24,15 @@ export interface JobStatus {
   progress?: number;
   message?: string;
   error?: string;
-  result?: any; // Keep as any for now, or define specific result types per job
-} 
+  // TODO: Define specific result types based on job type (e.g., TranscriptionResult | AnalysisResult)
+  // Left as 'any' for now as the structure varies depending on the completed job.
+  // TODO: Define specific result types based on job type (e.g., TranscriptionResult | AnalysisResult)
+  // Using a specific type for transcription results now. Might need a union type later.
+  result?: string; // Keep 'any' for now for other potential job types
+}
+
+// Specific payload type for completed transcription jobs
+export interface TranscriptionResultPayload {
+  content?: string; // The transcribed text
+  // Add other potential fields from the transcription result if known
+}

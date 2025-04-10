@@ -229,9 +229,10 @@ function interceptFetch(): void {
   if (!isBrowser) return;
 
   // Use a module-level variable to track if we've already intercepted
+  // Using 'any' here to augment the global object, a common but less type-safe pattern.
   if ((globalThis as any).__fetchIntercepted) return;
-  (globalThis as any).__fetchIntercepted = true;
-  
+  (globalThis as any).__fetchIntercepted = true; // Set the flag
+
   const originalFetch = window.fetch;
   
   window.fetch = async function(input, init) {
@@ -247,7 +248,7 @@ function interceptFetch(): void {
         const requestData = JSON.parse(init.body as string);
         jobId = requestData.jobId || null;
       }
-    } catch (e) {
+    } catch { // Removed unused _e variable
       // Ignore parsing errors in body
     }
     
@@ -272,7 +273,7 @@ function interceptFetch(): void {
         } else {
           console.error(`Backend reported error for job: ${jobId}`, responseData.error);
         }
-      } catch (e) {
+      } catch { // Removed unused _e variable
         // If we can't parse the response, still update status based on HTTP status
         confirmJobCompletion(jobId, clonedResponse.ok);
         console.warn(`Could not parse response for job ${jobId}, but marked as ${clonedResponse.ok ? 'complete' : 'error'}`);
@@ -281,4 +282,4 @@ function interceptFetch(): void {
     
     return result;
   };
-} 
+}

@@ -1,64 +1,25 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { supabase } from '@/lib/supabaseClient'; // Assuming you might use this later
+import { NextResponse } from 'next/server'; // Removed unused type NextRequest
+// Removed unused GoogleGenerativeAI, HarmCategory, HarmBlockThreshold
+// Removed unused supabase
 import { extractYoutubeVideoId } from '@/lib/youtubeApi';
-import path from 'path';
-import fsPromises from 'fs/promises'; // Use promises API for async operations
-import fs from 'fs'; // Import standard fs for sync operations
-import os from 'os';
+// Removed unused path import
+// Removed unused fsPromises
+// Removed unused fs
+// Removed unused os import
 // Removed: import { exec } from 'child_process';
 // Removed: import { promisify } from 'util';
-import { updateProgress } from '@/lib/progressTrackerServer'; // Import the server version - Keep for now, might be used differently
+// Removed unused updateProgress
 import { createJob } from '@/lib/jobQueue'; // Import createJob
 
 // Removed: const execPromise = promisify(exec);
-const TEMP_DIR = path.join(os.tmpdir(), 'production_teacher_media'); // Use OS temp dir - Keep for now, might be needed by worker
+// Removed unused TEMP_DIR constant
 
 // --- Configuration ---
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 
-// Add debugging info
-const DEBUG = true;
-const logDebug = (...args: any[]) => {
-  if (DEBUG) {
-    console.log(...args);
-  }
-};
-
-// Add detailed timing logs
-const startTimers: Record<string, number> = {};
-
-function startTimer(label: string): string {
-  startTimers[label] = Date.now();
-  return label;
-}
-
-function endTimer(label: string): number {
-  if (!startTimers[label]) {
-    console.warn(`Timer "${label}" not found`);
-    return 0;
-  }
-  const elapsed = Date.now() - startTimers[label];
-  delete startTimers[label];
-  return elapsed;
-}
-
-// Ensure temp directory exists
-async function ensureTempDir() {
-    try {
-        await fsPromises.mkdir(TEMP_DIR, { recursive: true });
-    } catch (error) {
-        // Check if error is an object with a code property
-        if (error && typeof error === 'object' && 'code' in error && error.code !== 'EEXIST') {
-            console.error("Failed to create temp directory:", error);
-            throw error; 
-        } else if (!(error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST')) {
-             // Re-throw if it's not the EEXIST error we expect to ignore
-             console.error("Unexpected error creating temp directory:", error);
-             throw error;
-        }
-    }
-}
+// Removed unused DEBUG constant and logDebug function
+// Removed unused startTimers variable, startTimer function, and endTimer function
+// Removed unused ensureTempDir function
 
 // Function to download media using yt-dlp-exec - REMOVED due to Vercel incompatibility
 // async function downloadMedia(...) { ... } // REMOVED
@@ -82,10 +43,9 @@ interface RequestBody {
 }
 
 // POST handler for the analyze endpoint
-export async function POST(request: Request) {
-  // Declare jobId in the outer scope so it's available in all catch blocks
-  let extractedJobId: string | undefined;
-  
+export async function POST(request: Request) { // Note: 'Request' type comes from Next/server implicitly or globally
+  // Removed unused variable declaration: let extractedJobId: string | undefined;
+
   try {
     // Check for API Key availability early
     if (!GEMINI_API_KEY) {

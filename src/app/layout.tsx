@@ -1,11 +1,11 @@
 'use client'; // Required for Mantine context
 
-import type { Metadata } from "next";
+// Removed unused Metadata import
 import { Inter } from "next/font/google";
 import "@mantine/core/styles.css"; // Import Mantine core styles
 import "@mantine/notifications/styles.css"; // Import notification styles
-import "./globals.css"; 
-import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink, Box, Text as MantineText } from '@mantine/core';
+import "./globals.css";
+import { MantineProvider, ColorSchemeScript, AppShell, Burger, Group, NavLink, Box } from '@mantine/core'; // Removed unused Text as MantineText
 import { Notifications } from '@mantine/notifications'; // Import Notifications provider
 import { useDisclosure } from '@mantine/hooks';
 import Link from 'next/link';

@@ -5,21 +5,22 @@ import { notifications } from '@mantine/notifications'; // Import notifications
 import ReactMarkdown from "react-markdown"; // Keep for results display
 
 // Mantine components
-import { 
-  Title, Text, Stack, Card, SimpleGrid, FileInput, Select, Button, 
-  Textarea, Radio, Group, Divider, Alert, Loader, Center, Paper, ThemeIcon 
+import {
+  Title, Text, Stack, Card, SimpleGrid, FileInput, Select, Button,
+  Textarea, Radio, Group, Divider, Alert, Paper // Removed Loader, Center, ThemeIcon
 } from '@mantine/core';
-import { IconUpload, IconFileText, IconAlertTriangle, IconCheck, IconX, IconAnalyze, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconUpload, IconFileText, IconAlertTriangle, IconCheck, IconX, IconAnalyze } from '@tabler/icons-react'; // Removed IconDeviceFloppy
 
 // Re-create JobStatusDisplay logic within this component for now
 import { Progress } from '@mantine/core'; // Using Mantine Progress
 
 // Import shared types
-import { 
-  TranscriptionQuality, 
-  TranscriptionFormat, 
+import {
+  TranscriptionQuality,
+  TranscriptionFormat,
   AnalysisModel,
-  JobStatus
+  JobStatus,
+  TranscriptionResultPayload // Added import
 } from '@/types';
 
 export default function TranscriptionPage() {
@@ -32,10 +33,10 @@ export default function TranscriptionPage() {
   const [transcriptionFormat, setTranscriptionFormat] = useState<TranscriptionFormat>('mp3');
   const [transcriptionJobId, setTranscriptionJobId] = useState<string | null>(null);
   
-  // --- Transcription Analysis State --- 
+  // --- Transcription Analysis State ---
   const [transcriptionToAnalyze, setTranscriptionToAnalyze] = useState<string | null>(null);
   const [analysisModel, setAnalysisModel] = useState<AnalysisModel>('gemini');
-  const [youtubeUrlForTranscript, setYoutubeUrlForTranscript] = useState<string | null>(null);
+  // Removed unused youtubeUrlForTranscript state
   const [isAnalyzingTranscript, setIsAnalyzingTranscript] = useState(false);
   const [transcriptionResultContent, setTranscriptionResultContent] = useState<string | null>(null);
   const [transcriptionResultError, setTranscriptionResultError] = useState<string | null>(null);
@@ -90,9 +91,9 @@ export default function TranscriptionPage() {
     }
   };
 
-  const handleTranscriptionComplete = (result: any) => {
-    setIsTranscribing(false); 
-    setTranscriptionJobId(null); 
+  const handleTranscriptionComplete = (result: TranscriptionResultPayload | undefined) => {
+    setIsTranscribing(false);
+    setTranscriptionJobId(null);
     setJobStatus(null);
     setIsPolling(false);
     if (result && result.content) {
@@ -174,7 +175,7 @@ export default function TranscriptionPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          youtubeUrl: youtubeUrlForTranscript,
+          // youtubeUrl: youtubeUrlForTranscript, // Removed unused variable
           modelType: analysisModel,
           transcriptionText: transcriptionToAnalyze,
         }),
@@ -371,4 +372,4 @@ export default function TranscriptionPage() {
       </Card>
     </Stack>
   );
-} 
+}

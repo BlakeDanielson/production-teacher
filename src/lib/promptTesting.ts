@@ -18,11 +18,7 @@ export interface TestResult {
   executionTimeMs: number;
 }
 
-interface TestConfig {
-  videoUrl: string;
-  analysisType: AnalysisType;
-  googleApiKey: string;
-}
+// Removed unused TestConfig interface
 
 // Collection of prompt tests
 const promptTests: PromptTest[] = [
@@ -556,4 +552,4 @@ export function loadTestResults(): TestResult[] {
 export function clearTestResults(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('promptTestResults');
-} 
+}

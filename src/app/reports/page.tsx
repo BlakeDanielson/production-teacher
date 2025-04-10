@@ -7,7 +7,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useDisclosure } from '@mantine/hooks';
-import { IconX, IconAlertTriangle, IconTrash, IconCopy, IconFlask } from '@tabler/icons-react';
+import { IconAlertTriangle, IconTrash, IconFlask } from '@tabler/icons-react'; // Removed unused IconX, IconCopy
 import ReactMarkdown from "react-markdown";
 import { useAppStore } from '@/store/store';
 import { ReportMetadata } from '@/types';
@@ -181,4 +181,4 @@ export default function ReportsPage() {
       </Modal>
     </Stack>
   );
-} 
+}

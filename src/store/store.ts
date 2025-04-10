@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { notifications, NotificationData } from '@mantine/notifications'; // For feedback in actions and import NotificationData type
 import { ReportMetadata, AnalysisModel } from '@/types'; // Use shared types
-import React from 'react'; // Import React
+// Removed unused React import
 
 // Helper to check if code is running in browser environment
 const isBrowser = typeof window !== 'undefined';
@@ -145,7 +145,7 @@ const createStore = () => {
       }
     },
 
-    addReport: async (reportData) => {
+    addReport: async () => { // Removed unused _reportData parameter name
        // We might not need this if saving always happens via the API and fetchReports is called after
        // However, it could be useful for optimistic updates.
        // For now, let's assume saving happens via API and we just refetch.
@@ -198,4 +198,4 @@ if (isBrowser) {
   }, 0);
 } else {
   console.log("Server environment detected - skipping localStorage access");
-} 
+}

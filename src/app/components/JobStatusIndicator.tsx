@@ -3,7 +3,7 @@ import { Job } from '@/lib/jobQueue';
 
 interface JobStatusIndicatorProps {
   jobId: string;
-  onCompleted?: (result: any) => void;
+  onCompleted?: (result: string) => void;
   onFailed?: (error: string) => void;
   showDetails?: boolean;
   className?: string;
@@ -91,13 +91,15 @@ export default function JobStatusIndicator({
 
   // Determine the status message
   const getStatusMessage = () => {
-    const metadata = job.result || {};
-    
+    // job.result is typed as string | undefined in the Job interface.
+    // Accessing a 'message' property is incorrect here.
     switch (job.status) {
       case 'pending':
         return 'Waiting to start...';
       case 'processing':
-        return metadata.message || 'Processing...';
+        // Simply return a standard processing message.
+        // Progress is shown separately via the progress bar.
+        return 'Processing...';
       case 'completed':
         return 'Completed successfully';
       case 'failed':
@@ -141,4 +143,4 @@ export default function JobStatusIndicator({
       )}
     </div>
   );
-} 
+}

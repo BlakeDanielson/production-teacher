@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { Title, Text, Stack, TextInput, PasswordInput, Button, Group, Select, Alert, Card } from '@mantine/core';
-import { IconDeviceFloppy, IconKey, IconSettings, IconCheck, IconX } from '@tabler/icons-react';
+import { useState } from "react"; // Removed unused useEffect
+import { Title, Text, Stack, PasswordInput, Button, Group, Select, Alert, Card } from '@mantine/core'; // Removed unused TextInput
+import { IconDeviceFloppy, IconKey } from '@tabler/icons-react'; // Removed unused IconSettings, IconCheck, IconX
 import { useAppStore } from '@/store/store';
 import { AnalysisModel } from '@/types';
 
@@ -16,7 +16,7 @@ export default function SettingsPage() {
     setGoogleApiKey,
     setOpenaiApiKey,
     setDefaultAnalysisModel,
-    loadSettings,
+    // Removed unused loadSettings
     saveSettings
   } = useAppStore();
   
@@ -55,7 +55,7 @@ export default function SettingsPage() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
            <Title order={4}>API Keys</Title>
-           <Text size="sm" c="dimmed">Enter your API keys for Google Gemini and OpenAI. These are stored securely in your browser's local storage.</Text>
+           <Text size="sm" c="dimmed">Enter your API keys for Google Gemini and OpenAI. These are stored securely in your browser&rsquo;s local storage.</Text>
            <PasswordInput
              label="Google Gemini API Key"
              placeholder="Enter your Google API Key"
@@ -106,4 +106,4 @@ export default function SettingsPage() {
 
     </Stack>
   );
-} 
+}

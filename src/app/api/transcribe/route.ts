@@ -1,23 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+// Removed unused supabase import
 // import OpenAI from 'openai'; // OpenAI client will be used by the worker
 // Removed: import { exec } from 'child_process';
-import fs from 'fs'; // Standard fs for sync methods like createReadStream
+// Removed unused fs import
 import fsPromises from 'fs/promises'; // For async fs operations
-import path from 'path';
-import { promisify } from 'util';
+// Removed unused path import
+// Removed unused promisify import
 import { Readable } from 'stream';
 import multiparty from 'multiparty';
-import os from 'os';
+// Removed unused os import
 import { createJob } from '@/lib/jobQueue'; // Import createJob
 
 // Removed: const execPromise = promisify(exec);
 
 // --- Configuration ---
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // Get OpenAI key from environment
-const TEMP_DIR = path.join(process.cwd(), 'tmp_media'); // Directory for temporary files
-const TRANSCRIPTION_MAX_SIZE_MB = 25; // OpenAI's Whisper API has a 25MB limit
-const MAX_DURATION_SECONDS = 3600; // Optional max duration to process (1 hour)
+// Removed unused TEMP_DIR constant
+// Removed unused TRANSCRIPTION_MAX_SIZE_MB constant
+// Removed unused MAX_DURATION_SECONDS constant
 
 // Helper to parse multipart form data
 const parseForm = (req: NextRequest): Promise<{ fields: Record<string, string[]>, files: Record<string, multiparty.File[]> }> => {
@@ -31,8 +31,9 @@ const parseForm = (req: NextRequest): Promise<{ fields: Record<string, string[]>
         return reject(new Error('Missing Content-Type header for multipart form data'));
     }
 
-    const readableStream = req.body as ReadableStream<any>;
-    // Cast nodeReadable to any to attach headers, acknowledging potential type mismatch
+    const readableStream = req.body as ReadableStream<Uint8Array>; // Replaced any with Uint8Array
+    // Cast nodeReadable to any to attach headers, acknowledging potential type mismatch.
+    // This is needed for compatibility with multiparty which expects Node streams.
     const nodeReadable: any = new Readable({
       async read() {
         const reader = readableStream.getReader();
@@ -66,16 +67,7 @@ const parseForm = (req: NextRequest): Promise<{ fields: Record<string, string[]>
 
 // --- Helper Functions ---
 
-// Function to ensure temporary directory exists
-async function ensureTempDirExists() {
-  try {
-    await fsPromises.access(TEMP_DIR, fs.constants.F_OK);
-  } catch {
-    // Directory does not exist, create it
-    await fsPromises.mkdir(TEMP_DIR, { recursive: true });
-    console.log(`Created temporary directory: ${TEMP_DIR}`);
-  }
-}
+// Removed unused ensureTempDirExists function
 
 // Enhanced function to extract high-quality audio from video - REMOVED (unused and relies on ffmpeg)
 // async function extractAudio(...) { ... }

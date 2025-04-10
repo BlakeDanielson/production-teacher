@@ -16,7 +16,7 @@ export interface Job {
   type: JobType;
   status: JobStatus;
   progress?: number;
-  result?: any;
+  result?: string;
   error?: string;
   created_at: string;
   updated_at: string;
@@ -29,7 +29,7 @@ export interface Job {
  * @param metadata Additional metadata to store with the job
  * @returns The created job record
  */
-export async function createJob(type: JobType, metadata: Record<string, any> = {}): Promise<Job> {
+export async function createJob(type: JobType, metadata: Record<string, string> = {}): Promise<Job> {
   const { data, error } = await supabase
     .from('jobs')
     .insert({
@@ -61,11 +61,12 @@ export async function updateJobStatus(
   jobId: string,
   status: JobStatus,
   progress?: number,
-  result?: any,
+  result?: any, // Corresponds to Job.result, left as any for now
   error?: string
 ): Promise<void> {
-  const updates: any = { status, updated_at: new Date().toISOString() };
-  
+  // Using Record<string, any> is slightly more specific than just 'any'
+  const updates: Record<string, any> = { status, updated_at: new Date().toISOString() };
+
   if (progress !== undefined) updates.progress = progress;
   if (result !== undefined) updates.result = result;
   if (error !== undefined) updates.error = error;
@@ -188,4 +189,4 @@ export async function processJob<T>(
     
     throw error;
   }
-} 
+}

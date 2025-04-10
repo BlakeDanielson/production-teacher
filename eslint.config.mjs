@@ -12,6 +12,10 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    // Ignore auto-generated Supabase types file
+    ignores: ["src/lib/database.types.ts"]
+  },
+  {
     files: ["src/app/api/**/*.ts"],
     rules: {
       // Allow more flexible error handling in API routes
