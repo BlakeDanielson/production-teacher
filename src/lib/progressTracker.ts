@@ -224,14 +224,21 @@ function notifySubscribers(jobId: string): void {
   }
 }
 
+// Define an interface extending globalThis to include our custom flag
+interface InterceptedGlobal extends Window {
+  __fetchIntercepted?: boolean;
+}
+
 // Monitor for fetch completions to sync with backend
 function interceptFetch(): void {
   if (!isBrowser) return;
 
+  // Cast globalThis to unknown first, then to our extended interface for type safety
+  const interceptedGlobal = globalThis as unknown as InterceptedGlobal;
+
   // Use a module-level variable to track if we've already intercepted
-  // Using 'any' here to augment the global object, a common but less type-safe pattern.
-  if ((globalThis as any).__fetchIntercepted) return;
-  (globalThis as any).__fetchIntercepted = true; // Set the flag
+  if (interceptedGlobal.__fetchIntercepted) return;
+  interceptedGlobal.__fetchIntercepted = true; // Set the flag
 
   const originalFetch = window.fetch;
   

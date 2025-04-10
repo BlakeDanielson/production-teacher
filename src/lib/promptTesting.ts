@@ -1,4 +1,5 @@
 import { AnalysisType } from '@/types';
+import { ProgressStage } from './progressTracker'; // Import ProgressStage
 
 interface PromptTest {
   id: string;
@@ -425,7 +426,8 @@ export async function runPromptBatchTest(
   const isBrowser = typeof window !== 'undefined';
   
   // Find the updateProgress function if it exists in this environment
-  let updateProgress: ((jobId: string, stage: any, progress: number, details?: string) => void) | null = null;
+  // Use the imported ProgressStage type here
+  let updateProgress: ((jobId: string, stage: ProgressStage, progress: number, details?: string) => void) | null = null;
   
   if (isBrowser) {
     try {

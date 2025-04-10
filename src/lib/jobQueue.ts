@@ -29,7 +29,7 @@ export interface Job {
  * @param metadata Additional metadata to store with the job
  * @returns The created job record
  */
-export async function createJob(type: JobType, metadata: Record<string, string> = {}): Promise<Job> {
+export async function createJob(type: JobType, metadata: Record<number, string> = {}): Promise<Job> {
   const { data, error } = await supabase
     .from('jobs')
     .insert({
@@ -61,11 +61,11 @@ export async function updateJobStatus(
   jobId: string,
   status: JobStatus,
   progress?: number,
-  result?: any, // Corresponds to Job.result, left as any for now
+  result?: string, // Match the Job interface type
   error?: string
 ): Promise<void> {
-  // Using Record<string, any> is slightly more specific than just 'any'
-  const updates: Record<string, any> = { status, updated_at: new Date().toISOString() };
+  // Use Partial<Job> for better type safety, aligning with the Job interface
+  const updates: Partial<Job> = { status, updated_at: new Date().toISOString() };
 
   if (progress !== undefined) updates.progress = progress;
   if (result !== undefined) updates.result = result;
@@ -178,8 +178,11 @@ export async function processJob<T>(
     // Execute the process function
     const result = await processFunction();
     
-    // Update job status to completed with result
-    await updateJobStatus(jobId, 'completed', 100, result);
+    // Convert result to string (e.g., JSON) before storing
+    const resultString = typeof result === 'string' ? result : JSON.stringify(result);
+    
+    // Update job status to completed with the stringified result
+    await updateJobStatus(jobId, 'completed', 100, resultString);
     
     return result;
   } catch (error) {
