@@ -39,10 +39,12 @@ export default function JobStatusIndicator({
         // Handle job completion or failure
         if (jobData.status === 'completed') {
           setIsPolling(false);
-          if (onCompleted) onCompleted(jobData.result);
+          // Provide default empty string if result is null
+          if (onCompleted) onCompleted(jobData.result ?? ''); 
         } else if (jobData.status === 'failed') {
           setIsPolling(false);
-          if (onFailed) onFailed(jobData.error || 'Job failed with no specific error message');
+          // Provide default message if error is null
+          if (onFailed) onFailed(jobData.error ?? 'Job failed with no specific error message');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error checking job status');
@@ -115,8 +117,10 @@ export default function JobStatusIndicator({
         <div className={`${getStatusColor()} h-3 w-3 rounded-full mr-2`}></div>
         <div className="flex-1">
           <div className="flex justify-between">
-            <span className="font-medium">Job: {job.type}</span>
-            <span className="text-sm text-gray-500">{formatTime(job.updated_at)}</span>
+            {/* Display job type, handle potential null */}
+            <span className="font-medium">Job: {job.type ?? 'N/A'}</span> 
+            {/* Use created_at as fallback if updated_at is null */}
+            <span className="text-sm text-gray-500">{formatTime(job.updated_at ?? job.created_at)}</span>
           </div>
           <p className="text-sm mt-1">{getStatusMessage()}</p>
         </div>

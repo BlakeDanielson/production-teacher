@@ -16,10 +16,14 @@ export interface Job {
   type: JobType;
   status: JobStatus;
   progress?: number;
-  result?: string;
-  error?: string;
+  result?: string | null;
+  error?: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
+  metadata?: Record<string, any> | null; // Match jsonb type
+  youtube_url?: string | null;
+  analysis_type?: string | null; // Match text type
+  user_id?: string | null; // Match uuid type
 }
 
 /**
@@ -29,22 +33,34 @@ export interface Job {
  * @param metadata Additional metadata to store with the job
  * @returns The created job record
  */
-export async function createJob(type: JobType, metadata: Record<number, string> = {}): Promise<Job> {
+// Change metadata type to be more flexible
+export async function createJob(type: JobType, metadata: Record<string, any> = {}): Promise<Job> {
+  // Extract specific fields expected in the table from the metadata object
+  const { youtubeUrl, analysisType, userId, ...otherMetadata } = metadata;
+
   const { data, error } = await supabase
     .from('jobs')
     .insert({
-      type,
-      status: 'pending',
-      metadata
+      type: type, // The job type ('analysis', 'transcription', etc.)
+      status: 'pending', // Default status
+      youtube_url: youtubeUrl, // Insert into the specific column
+      analysis_type: analysisType, // Insert into the specific column
+      user_id: userId, // Insert user_id if provided in metadata
+      metadata: otherMetadata // Insert remaining metadata into the jsonb column
     })
-    .select('*')
+    .select('*') // Select all columns to match the Job interface
     .single();
-  
+
   if (error) {
     console.error('Error creating job:', error);
+    // Log the detailed error
+    console.error('Detailed Supabase insert error:', error);
     throw new Error(`Failed to create job: ${error.message}`);
   }
-  
+
+  // Ensure the returned data matches the Job interface structure
+  // You might need to adjust the Job interface or the select statement
+  // if the table columns don't perfectly align with the interface fields.
   return data as Job;
 }
 
