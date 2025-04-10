@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import fsPromises from 'fs/promises'; // For async fs operations
 // Removed unused path import
 // Removed unused promisify import
-import { Readable } from 'stream';
+import { Readable, ReadableOptions } from 'stream'; // Import ReadableOptions
 import multiparty from 'multiparty';
 // Removed unused os import
 import { createJob } from '@/lib/jobQueue'; // Import createJob
@@ -32,9 +32,9 @@ const parseForm = (req: NextRequest): Promise<{ fields: Record<string, string[]>
     }
 
     const readableStream = req.body as ReadableStream<Uint8Array>; // Replaced any with Uint8Array
-    // Cast nodeReadable to any to attach headers, acknowledging potential type mismatch.
-    // This is needed for compatibility with multiparty which expects Node streams.
-    const nodeReadable: any = new Readable({
+
+    // Create a Node.js Readable stream from the NextRequest body
+    const nodeReadable = new Readable({
       async read() {
         const reader = readableStream.getReader();
         try {
@@ -50,12 +50,14 @@ const parseForm = (req: NextRequest): Promise<{ fields: Record<string, string[]>
           this.destroy(err as Error); // Propagate error
         }
       }
-    });
+    } as ReadableOptions); // Cast options to satisfy Readable constructor
 
-    // Add headers property to the stream object for multiparty
+    // Attach headers for multiparty compatibility, ignoring potential type issues here
+    // @ts-expect-error Property 'headers' does not exist on type 'Readable'.
     nodeReadable.headers = headers;
 
     // Pass the adapted stream directly to form.parse
+    // @ts-expect-error multiparty expects IncomingMessage, we provide adapted Readable
     form.parse(nodeReadable, (err: Error | null, fields: Record<string, string[] | undefined>, files: Record<string, multiparty.File[] | undefined>) => {
       if (err) return reject(err);
       // Filter out undefined before resolving if necessary, or handle downstream
