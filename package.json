@@ -25,7 +25,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@tabler/icons-react": "^3.31.0",
     "multiparty": "^4.2.3",
-    "next": "15.2.4",
+    "next": "15.2.8",
     "next-themes": "^0.4.6",
     "openai": "^4.91.1",
     "react": "^19.0.0",
